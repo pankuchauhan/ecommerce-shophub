@@ -4,7 +4,6 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import AdminPanel from './AdminPanel';
 import PaymentModal from './PaymentModal';
-import NotificationModal from './NotificationModal';
 
 // Product Detail Modal Component
 const ProductDetailModal = ({ show, onClose, product, onAddToCart, onBuyNow, formatIndianRupee }) => {
@@ -96,7 +95,6 @@ function App() {
   const [toastMessage, setToastMessage] = useState('');
   const [showPromoBanner, setShowPromoBanner] = useState(true);
   const [notificationData, setNotificationData] = useState({ title: '', message: '', type: 'success', details: null });
-  const [showWhatsApp, setShowWhatsApp] = useState(true);
 
   const [shippingDetails, setShippingDetails] = useState({
     fullName: '', address: '', city: '', state: '', pincode: '', phone: '', paymentMethod: 'online'
@@ -320,13 +318,13 @@ function App() {
     alert(`Order placed successfully! Order ID: ${orderDetails.orderId}`);
   };
 
-  const filteredProducts = products.filter(product => {
+  const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const categories = ['All', ...new Set(products.map(p => p.category))];
+  const categories = ['All', ...new Set(products.map((p) => p.category))];
 
   if (showAdmin && user?.isAdmin) {
     return <AdminPanel onBack={() => setShowAdmin(false)} />;
@@ -360,7 +358,7 @@ function App() {
       </Navbar>
 
       {/* Category Filter */}
-      <div className="category-bar bg-light py-3 border-bottom shadow-sm"><Container><div className="d-flex gap-2 flex-wrap justify-content-center">{categories.map(category => (<Button key={category} variant={selectedCategory === category ? "primary" : "outline-secondary"} size="sm" onClick={() => setSelectedCategory(category)} className="rounded-pill px-3">{category}</Button>))}</div></Container></div>
+      <div className="category-bar bg-light py-3 border-bottom shadow-sm"><Container><div className="d-flex gap-2 flex-wrap justify-content-center">{categories.map((category) => (<Button key={category} variant={selectedCategory === category ? "primary" : "outline-secondary"} size="sm" onClick={() => setSelectedCategory(category)} className="rounded-pill px-3">{category}</Button>))}</div></Container></div>
 
       {/* Promo Banner */}
       {showPromoBanner && (<div className="promo-banner py-2" style={{ background: 'linear-gradient(90deg, #ff6b6b, #feca57)' }}><Container><div className="d-flex justify-content-between align-items-center"><div className="text-dark"><i className="bi bi-megaphone-fill me-2"></i><strong>🔥 LIMITED TIME OFFER!</strong> Get 10% off on orders above ₹5,000 | Free Shipping on ₹50,000+</div><Button variant="link" className="text-dark p-0" onClick={() => setShowPromoBanner(false)}><i className="bi bi-x-lg"></i></Button></div></Container></div>)}
@@ -372,12 +370,12 @@ function App() {
       <Container className="py-4">
         <div className="d-flex justify-content-between align-items-center mb-4"><h3><i className="bi bi-grid-3x3-gap-fill me-2"></i>Featured Products</h3><Badge bg="secondary" pill className="fs-6">{filteredProducts.length} products</Badge></div>
         <Row xs={1} sm={2} md={3} lg={4} className="g-4">
-          {filteredProducts.map(product => (
+          {filteredProducts.map((product) => (
             <Col key={product.id}>
               <div className="product-card" onClick={() => viewProductDetail(product)}>
                 <div className="image-wrapper position-relative">
                   <Card.Img variant="top" src={product.image} className="product-img" />
-                  <Button variant={wishlist.some(item => item.id === product.id) ? "danger" : "light"} size="sm" className="wishlist-btn position-absolute top-0 end-0 m-2 rounded-circle" onClick={(e) => { e.stopPropagation(); toggleWishlist(product); }}><i className={`bi ${wishlist.some(item => item.id === product.id) ? 'bi-heart-fill' : 'bi-heart'}`}></i></Button>
+                  <Button variant={wishlist.some((item) => item.id === product.id) ? "danger" : "light"} size="sm" className="wishlist-btn position-absolute top-0 end-0 m-2 rounded-circle" onClick={(e) => { e.stopPropagation(); toggleWishlist(product); }}><i className={`bi ${wishlist.some((item) => item.id === product.id) ? 'bi-heart-fill' : 'bi-heart'}`}></i></Button>
                   {product.stock < 20 && <Badge bg="warning" className="stock-badge">Only {product.stock} left</Badge>}
                 </div>
                 <Card.Body className="d-flex flex-column">
@@ -395,7 +393,7 @@ function App() {
       {/* Wishlist Modal */}
       <Modal show={showWishlist} onHide={() => setShowWishlist(false)} size="lg" centered>
         <Modal.Header closeButton className="bg-danger text-white"><Modal.Title><i className="bi bi-heart-fill me-2"></i>My Wishlist ({wishlist.length})</Modal.Title></Modal.Header>
-        <Modal.Body>{wishlist.length === 0 ? (<div className="text-center py-5"><i className="bi bi-emoji-frown fs-1"></i><p>Your wishlist is empty!</p></div>) : (<Row>{wishlist.map(product => (<Col md={6} key={product.id} className="mb-3"><Card><Row className="g-0"><Col md={4}><Card.Img src={product.image} style={{ height: '100%', objectFit: 'cover' }} /></Col><Col md={8}><Card.Body><Card.Title className="fs-6">{product.name}</Card.Title><Card.Text className="text-primary fw-bold">{formatIndianRupee(product.price)}</Card.Text><Button size="sm" variant="primary" onClick={() => addToCart(product)}><i className="bi bi-cart-plus"></i> Add to Cart</Button></Card.Body></Col></Row></Card></Col>))}</Row>)}</Modal.Body>
+        <Modal.Body>{wishlist.length === 0 ? (<div className="text-center py-5"><i className="bi bi-emoji-frown fs-1"></i><p>Your wishlist is empty!</p></div>) : (<Row>{wishlist.map((product) => (<Col md={6} key={product.id} className="mb-3"><Card><Row className="g-0"><Col md={4}><Card.Img src={product.image} style={{ height: '100%', objectFit: 'cover' }} /></Col><Col md={8}><Card.Body><Card.Title className="fs-6">{product.name}</Card.Title><Card.Text className="text-primary fw-bold">{formatIndianRupee(product.price)}</Card.Text><Button size="sm" variant="primary" onClick={() => addToCart(product)}><i className="bi bi-cart-plus"></i> Add to Cart</Button></Card.Body></Col></Row></Card></Col>))}</Row>)}</Modal.Body>
       </Modal>
 
       {/* Review Modal */}
@@ -403,21 +401,21 @@ function App() {
         <Modal.Header closeButton><Modal.Title>Reviews for {selectedProduct?.name}</Modal.Title></Modal.Header>
         <Modal.Body>
           <div className="mb-4"><h6>Write a Review</h6><Form.Group className="mb-2"><Form.Select value={reviewRating} onChange={(e) => setReviewRating(parseInt(e.target.value))}><option value={5}>★★★★★ (5)</option><option value={4}>★★★★☆ (4)</option><option value={3}>★★★☆☆ (3)</option><option value={2}>★★☆☆☆ (2)</option><option value={1}>★☆☆☆☆ (1)</option></Form.Select></Form.Group><Form.Group className="mb-2"><Form.Control as="textarea" rows={3} placeholder="Write your review..." value={reviewText} onChange={(e) => setReviewText(e.target.value)} /></Form.Group><Button variant="primary" onClick={addReview}>Submit Review</Button></div>
-          <hr /><h6>Customer Reviews</h6>{getProductReviews(selectedProduct?.id).length === 0 ? (<p className="text-muted">No reviews yet. Be the first to review!</p>) : (getProductReviews(selectedProduct?.id).map(review => (<div key={review.id} className="mb-3 p-2 bg-light rounded"><div className="fw-bold">{review.userName}</div><div className="text-warning">{'★'.repeat(review.rating)}</div><div className="small">{review.comment}</div><div className="small text-muted">{new Date(review.date).toLocaleDateString()}</div></div>)))}
+          <hr /><h6>Customer Reviews</h6>{getProductReviews(selectedProduct?.id).length === 0 ? (<p className="text-muted">No reviews yet. Be the first to review!</p>) : (getProductReviews(selectedProduct?.id).map((review) => (<div key={review.id} className="mb-3 p-2 bg-light rounded"><div className="fw-bold">{review.userName}</div><div className="text-warning">{'★'.repeat(review.rating)}</div><div className="small">{review.comment}</div><div className="small text-muted">{new Date(review.date).toLocaleDateString()}</div></div>)))}
         </Modal.Body>
       </Modal>
 
       {/* Cart Modal */}
       <Modal show={showCart} onHide={() => setShowCart(false)} size="lg" centered>
         <Modal.Header closeButton className="bg-primary text-white"><Modal.Title><i className="bi bi-cart3 me-2"></i>Your Cart ({getCartCount()} items)</Modal.Title></Modal.Header>
-        <Modal.Body>{cart.length === 0 ? (<div className="text-center py-5"><i className="bi bi-emoji-smile fs-1"></i><p>Your cart is empty!</p></div>) : (<Table responsive><thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Total</th><th></th></tr></thead><tbody>{cart.map(item => (<tr key={item.id}><td className="align-middle"><div className="d-flex gap-2"><img src={item.image} alt={item.name} style={{ width: '50px', height: '50px', objectFit: 'cover' }} /><span className="fw-bold">{item.name}</span></div></td><td className="align-middle">{formatIndianRupee(item.price)}</td><td className="align-middle"><div className="d-flex gap-2"><Button size="sm" variant="outline-secondary" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</Button><span className="fw-bold">{item.quantity}</span><Button size="sm" variant="outline-secondary" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button></div></td><td className="align-middle fw-bold">{formatIndianRupee(item.price * item.quantity)}</td><td className="align-middle"><Button variant="link" className="text-danger" onClick={() => removeFromCart(item.id)}><i className="bi bi-trash"></i></Button></td></tr>))}</tbody><tfoot><tr className="table-active"><td colSpan="3" className="text-end fw-bold">Total:</td><td colSpan="2" className="fw-bold fs-5 text-primary">{formatIndianRupee(getCartTotal())}</td></tr></tfoot></Table>)}</Modal.Body>
+        <Modal.Body>{cart.length === 0 ? (<div className="text-center py-5"><i className="bi bi-emoji-smile fs-1"></i><p>Your cart is empty!</p></div>) : (<Table responsive><thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Total</th><th></th></tr></thead><tbody>{cart.map((item) => (<tr key={item.id}><td className="align-middle"><div className="d-flex gap-2"><img src={item.image} alt={item.name} style={{ width: '50px', height: '50px', objectFit: 'cover' }} /><span className="fw-bold">{item.name}</span></div></td><td className="align-middle">{formatIndianRupee(item.price)}</td><td className="align-middle"><div className="d-flex gap-2"><Button size="sm" variant="outline-secondary" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</Button><span className="fw-bold">{item.quantity}</span><Button size="sm" variant="outline-secondary" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button></div></td><td className="align-middle fw-bold">{formatIndianRupee(item.price * item.quantity)}</td><td className="align-middle"><Button variant="link" className="text-danger" onClick={() => removeFromCart(item.id)}><i className="bi bi-trash"></i></Button></td></tr>))}</tbody><tfoot><tr className="table-active"><td colSpan="3" className="text-end fw-bold">Total:</td><td colSpan="2" className="fw-bold fs-5 text-primary">{formatIndianRupee(getCartTotal())}</td></tr></tfoot></Table>)}</Modal.Body>
         <Modal.Footer><Button variant="secondary" onClick={() => setShowCart(false)}>Continue Shopping</Button>{cart.length > 0 && <Button variant="success" onClick={() => { setShowCart(false); setShowCheckout(true); }}><i className="bi bi-credit-card"></i> Checkout</Button>}</Modal.Footer>
       </Modal>
 
       {/* Checkout Modal */}
       <Modal show={showCheckout} onHide={() => setShowCheckout(false)} size="lg" centered>
         <Modal.Header closeButton className="bg-success text-white"><Modal.Title><i className="bi bi-clipboard-check me-2"></i>Checkout</Modal.Title></Modal.Header>
-        <Modal.Body><Row><Col md={6}><h5>Order Summary</h5><div className="bg-light p-3 rounded">{cart.map(item => (<div key={item.id} className="d-flex justify-content-between mb-2"><span>{item.name} x {item.quantity}</span><span>{formatIndianRupee(item.price * item.quantity)}</span></div>))}<hr /><div className="d-flex justify-content-between fw-bold"><span>Total:</span><span className="text-success">{formatIndianRupee(getCartTotal())}</span></div></div></Col><Col md={6}><h5>Shipping Details</h5><Form><Form.Control className="mb-2" type="text" name="fullName" placeholder="Full Name" value={shippingDetails.fullName} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="text" name="address" placeholder="Address" value={shippingDetails.address} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="text" name="city" placeholder="City" value={shippingDetails.city} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="text" name="state" placeholder="State" value={shippingDetails.state} onChange={handleCheckoutInput} /><Form.Control className="mb-2" type="text" name="pincode" placeholder="PIN Code" value={shippingDetails.pincode} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="tel" name="phone" placeholder="Phone" value={shippingDetails.phone} onChange={handleCheckoutInput} required /><Form.Select name="paymentMethod" value={shippingDetails.paymentMethod} onChange={handleCheckoutInput}><option value="cod">💰 Cash on Delivery</option><option value="online">💳 Online Payment (UPI / Card)</option></Form.Select></Form></Col></Row></Modal.Body>
+        <Modal.Body><Row><Col md={6}><h5>Order Summary</h5><div className="bg-light p-3 rounded">{cart.map((item) => (<div key={item.id} className="d-flex justify-content-between mb-2"><span>{item.name} x {item.quantity}</span><span>{formatIndianRupee(item.price * item.quantity)}</span></div>))}<hr /><div className="d-flex justify-content-between fw-bold"><span>Total:</span><span className="text-success">{formatIndianRupee(getCartTotal())}</span></div></div></Col><Col md={6}><h5>Shipping Details</h5><Form><Form.Control className="mb-2" type="text" name="fullName" placeholder="Full Name" value={shippingDetails.fullName} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="text" name="address" placeholder="Address" value={shippingDetails.address} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="text" name="city" placeholder="City" value={shippingDetails.city} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="text" name="state" placeholder="State" value={shippingDetails.state} onChange={handleCheckoutInput} /><Form.Control className="mb-2" type="text" name="pincode" placeholder="PIN Code" value={shippingDetails.pincode} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="tel" name="phone" placeholder="Phone" value={shippingDetails.phone} onChange={handleCheckoutInput} required /><Form.Select name="paymentMethod" value={shippingDetails.paymentMethod} onChange={handleCheckoutInput}><option value="cod">💰 Cash on Delivery</option><option value="online">💳 Online Payment (UPI / Card)</option></Form.Select></Form></Col></Row></Modal.Body>
         <Modal.Footer><Button variant="secondary" onClick={() => setShowCheckout(false)}>Back</Button><Button variant="success" onClick={placeOrder}>Place Order</Button></Modal.Footer>
       </Modal>
 
