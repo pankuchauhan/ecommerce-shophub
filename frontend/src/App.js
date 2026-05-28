@@ -3,7 +3,6 @@ import { Container, Row, Col, Card, Button, Navbar, Nav, Form, InputGroup, Badge
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import AdminPanel from './AdminPanel';
-import PaymentModal from './PaymentModal';
 
 // Product Detail Modal Component
 const ProductDetailModal = ({ show, onClose, product, onAddToCart, onBuyNow, formatIndianRupee }) => {
@@ -69,6 +68,7 @@ function App() {
   const [cart, setCart] = useState([]);
   const [user, setUser] = useState(null);
   const [wishlist, setWishlist] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [showLogin, setShowLogin] = useState(false);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -78,7 +78,6 @@ function App() {
   const [showPayment, setShowPayment] = useState(false);
   const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
   const [showProductDetail, setShowProductDetail] = useState(false);
-  const [showNotification, setShowNotification] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -94,10 +93,9 @@ function App() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [showPromoBanner, setShowPromoBanner] = useState(true);
-  const [notificationData, setNotificationData] = useState({ title: '', message: '', type: 'success', details: null });
 
   const [shippingDetails, setShippingDetails] = useState({
-    fullName: '', address: '', city: '', state: '', pincode: '', phone: '', paymentMethod: 'online'
+    fullName: '', address: '', city: '', state: '', pincode: '', phone: '', paymentMethod: 'cod'
   });
 
   const allProducts = [
@@ -111,22 +109,37 @@ function App() {
     { id: 8, name: "MacBook Pro M3", price: 169900, description: "M3 chip, Liquid Retina XDR", category: "Electronics", image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400", stock: 8, brand: "Apple", rating: 4.9 }
   ];
 
+  // Load data from localStorage on page load
   useEffect(() => {
     setProducts(allProducts);
     setLoading(false);
-    const token = localStorage.getItem('token');
-    const userData = JSON.parse(localStorage.getItem('user') || '{}');
-    if (token && userData.id) {
+    
+    // Load user session
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      const userData = JSON.parse(savedUser);
       setUser(userData);
       loadWishlist(userData.id);
     }
-    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
-    if (savedCart.length > 0) setCart(savedCart);
+    
+    // Load cart
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      setCart(JSON.parse(savedCart));
+    }
+    
+    // Load orders
+    const savedOrders = localStorage.getItem('orders');
+    if (savedOrders) {
+      setOrders(JSON.parse(savedOrders));
+    }
   }, []);
 
   const loadWishlist = (userId) => {
-    const savedWishlist = JSON.parse(localStorage.getItem(`wishlist_${userId}`) || '[]');
-    setWishlist(savedWishlist);
+    const savedWishlist = localStorage.getItem(`wishlist_${userId}`);
+    if (savedWishlist) {
+      setWishlist(JSON.parse(savedWishlist));
+    }
   };
 
   const saveWishlist = (userId, newWishlist) => {
@@ -143,11 +156,17 @@ function App() {
     const exists = wishlist.some(item => item.id === product.id);
     if (exists) {
       saveWishlist(user.id, wishlist.filter(item => item.id !== product.id));
-      alert(`${product.name} removed from wishlist`);
+      showToastMessage(`${product.name} removed from wishlist`);
     } else {
       saveWishlist(user.id, [...wishlist, product]);
-      alert(`${product.name} added to wishlist ❤️`);
+      showToastMessage(`${product.name} added to wishlist ❤️`);
     }
+  };
+
+  const showToastMessage = (message) => {
+    setToastMessage(message);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
   };
 
   const addReview = () => {
@@ -159,44 +178,61 @@ function App() {
     const productReviews = JSON.parse(localStorage.getItem(`reviews_${selectedProduct.id}`) || '[]');
     productReviews.push({ id: Date.now(), userName: user.name, rating: reviewRating, comment: reviewText, date: new Date().toISOString() });
     localStorage.setItem(`reviews_${selectedProduct.id}`, JSON.stringify(productReviews));
-    alert('Review added successfully! ⭐');
+    showToastMessage('Review added successfully! ⭐');
     setShowReview(false);
     setReviewText('');
     setReviewRating(5);
   };
 
-  const getProductReviews = (productId) => JSON.parse(localStorage.getItem(`reviews_${productId}`) || '[]');
+  const getProductReviews = (productId) => {
+    return JSON.parse(localStorage.getItem(`reviews_${productId}`) || '[]');
+  };
 
   const formatIndianRupee = (amount) => {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
   };
 
   const handleLogin = (e) => {
     e.preventDefault();
     const storedUsers = JSON.parse(localStorage.getItem('app_users') || '[]');
+    
     if (!isLogin) {
+      // Register
       const existingUser = storedUsers.find(u => u.email === email);
       if (existingUser) {
         alert('Email already registered!');
         return;
       }
       const newUser = { id: Date.now(), name, email, password, isAdmin: email === 'pankuchauhan35@gmail.com' };
-      localStorage.setItem('app_users', JSON.stringify([...storedUsers, newUser]));
-      localStorage.setItem('user', JSON.stringify({ id: newUser.id, name, email, isAdmin: newUser.isAdmin }));
-      setUser({ id: newUser.id, name, email, isAdmin: newUser.isAdmin });
+      const updatedUsers = [...storedUsers, newUser];
+      localStorage.setItem('app_users', JSON.stringify(updatedUsers));
+      
+      const userData = { id: newUser.id, name, email, isAdmin: newUser.isAdmin };
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
       setShowLogin(false);
-      alert('Registration successful! 🎉');
+      showToastMessage('Registration successful! 🎉');
     } else {
+      // Login
       const foundUser = storedUsers.find(u => u.email === email && u.password === password);
       if (foundUser) {
-        localStorage.setItem('user', JSON.stringify({ id: foundUser.id, name: foundUser.name, email, isAdmin: foundUser.isAdmin }));
-        setUser({ id: foundUser.id, name: foundUser.name, email, isAdmin: foundUser.isAdmin });
+        const userData = { id: foundUser.id, name: foundUser.name, email, isAdmin: foundUser.isAdmin };
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
         setShowLogin(false);
-        alert(`Welcome back, ${foundUser.name}! 👋`);
+        showToastMessage(`Welcome back, ${foundUser.name}! 👋`);
       } else {
         alert('Invalid email or password');
       }
     }
+    setEmail('');
+    setPassword('');
+    setName('');
   };
 
   const handleLogout = () => {
@@ -205,7 +241,7 @@ function App() {
     setCart([]);
     setWishlist([]);
     localStorage.removeItem('cart');
-    alert('Logged out successfully');
+    showToastMessage('Logged out successfully 👋');
   };
 
   const addToCart = (product, quantity = 1) => {
@@ -218,7 +254,7 @@ function App() {
     }
     setCart(newCart);
     localStorage.setItem('cart', JSON.stringify(newCart));
-    alert(`${quantity} x ${product.name} added to cart! 🛒`);
+    showToastMessage(`${quantity} x ${product.name} added to cart! 🛒`);
   };
 
   const removeFromCart = (productId) => {
@@ -261,26 +297,39 @@ function App() {
     setShowProductDetail(true);
   };
 
-  const handlePaymentSuccess = () => {
+  const saveOrder = (paymentMethod, status = 'Pending') => {
     const orderDetails = {
+      id: Date.now(),
       orderId: 'ORD' + Date.now(),
-      items: cart,
-      total: formatIndianRupee(getCartTotal()),
-      paymentMethod: 'Online Payment',
-      shippingAddress: `${shippingDetails.fullName}, ${shippingDetails.address}, ${shippingDetails.city} - ${shippingDetails.pincode}`,
-      date: new Date().toLocaleString()
+      items: [...cart],
+      total: getCartTotal(),
+      totalAmount: formatIndianRupee(getCartTotal()),
+      customerName: shippingDetails.fullName,
+      customerEmail: user?.email,
+      shippingAddress: `${shippingDetails.fullName}, ${shippingDetails.address}, ${shippingDetails.city} - ${shippingDetails.pincode}, Phone: ${shippingDetails.phone}`,
+      paymentMethod: paymentMethod,
+      status: status,
+      date: new Date().toLocaleString(),
+      orderStatus: 'Processing'
     };
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    orders.push(orderDetails);
-    localStorage.setItem('orders', JSON.stringify(orders));
-    localStorage.removeItem('cart');
+    
+    const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]');
+    existingOrders.push(orderDetails);
+    localStorage.setItem('orders', JSON.stringify(existingOrders));
+    setOrders(existingOrders);
+    return orderDetails;
+  };
+
+  const handlePaymentSuccess = () => {
+    const orderDetails = saveOrder('Online Payment', 'Paid');
     setConfirmedOrder(orderDetails);
     setShowOrderConfirmation(true);
     setShowPayment(false);
     setCart([]);
     setShowCart(false);
     setShowCheckout(false);
-    alert(`Order placed successfully! Order ID: ${orderDetails.orderId}`);
+    localStorage.removeItem('cart');
+    showToastMessage(`Order placed successfully! Order ID: ${orderDetails.orderId}`);
   };
 
   const placeOrder = () => {
@@ -298,24 +347,15 @@ function App() {
       setShowPayment(true);
       return;
     }
-    const orderDetails = {
-      orderId: 'ORD' + Date.now(),
-      items: cart,
-      total: formatIndianRupee(getCartTotal()),
-      paymentMethod: 'Cash on Delivery',
-      shippingAddress: `${shippingDetails.fullName}, ${shippingDetails.address}, ${shippingDetails.city} - ${shippingDetails.pincode}`,
-      date: new Date().toLocaleString()
-    };
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    orders.push(orderDetails);
-    localStorage.setItem('orders', JSON.stringify(orders));
-    localStorage.removeItem('cart');
+    
+    const orderDetails = saveOrder('Cash on Delivery', 'Pending');
     setConfirmedOrder(orderDetails);
     setShowOrderConfirmation(true);
     setCart([]);
     setShowCart(false);
     setShowCheckout(false);
-    alert(`Order placed successfully! Order ID: ${orderDetails.orderId}`);
+    localStorage.removeItem('cart');
+    showToastMessage(`Order placed successfully! Order ID: ${orderDetails.orderId}`);
   };
 
   const filteredProducts = products.filter((product) => {
@@ -333,56 +373,176 @@ function App() {
   return (
     <div className="app">
       <ProductDetailModal show={showProductDetail} onClose={() => setShowProductDetail(false)} product={selectedProductDetail} onAddToCart={addToCart} onBuyNow={buyNow} formatIndianRupee={formatIndianRupee} />
-      <PaymentModal show={showPayment} onClose={() => setShowPayment(false)} amount={getCartTotal()} onSuccess={handlePaymentSuccess} />
 
+      {/* Toast Notification */}
+      <div className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1100 }}>
+        <Toast show={showToast} onClose={() => setShowToast(false)} delay={3000} autohide bg="success">
+          <Toast.Body className="text-white">{toastMessage}</Toast.Body>
+        </Toast>
+      </div>
+
+      {/* Order Confirmation Modal */}
       <Modal show={showOrderConfirmation} onHide={() => setShowOrderConfirmation(false)} centered>
-        <Modal.Header closeButton className="bg-success text-white"><Modal.Title>🎉 Order Confirmed!</Modal.Title></Modal.Header>
-        <Modal.Body>{confirmedOrder && (<><p><strong>Order ID:</strong> {confirmedOrder.orderId}</p><p><strong>Total:</strong> {confirmedOrder.total}</p><p><strong>Payment:</strong> {confirmedOrder.paymentMethod}</p><p><strong>Shipping:</strong> {confirmedOrder.shippingAddress}</p><p><strong>Date:</strong> {confirmedOrder.date}</p><Alert variant="info"><i className="bi bi-truck"></i> Estimated Delivery: 3-5 business days</Alert></>)}</Modal.Body>
-        <Modal.Footer><Button variant="success" onClick={() => setShowOrderConfirmation(false)}>Continue Shopping</Button></Modal.Footer>
+        <Modal.Header closeButton className="bg-success text-white">
+          <Modal.Title>🎉 Order Confirmed!</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {confirmedOrder && (
+            <>
+              <p><strong>Order ID:</strong> {confirmedOrder.orderId}</p>
+              <p><strong>Total:</strong> {formatIndianRupee(confirmedOrder.total)}</p>
+              <p><strong>Payment:</strong> {confirmedOrder.paymentMethod}</p>
+              <p><strong>Shipping Address:</strong> {confirmedOrder.shippingAddress}</p>
+              <p><strong>Date:</strong> {confirmedOrder.date}</p>
+              <Alert variant="info" className="mt-3">
+                <i className="bi bi-truck"></i> Estimated Delivery: 3-5 business days
+              </Alert>
+              <Alert variant="success" className="mt-2">
+                <i className="bi bi-envelope"></i> Order details saved! You can track your order in My Orders section.
+              </Alert>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="success" onClick={() => setShowOrderConfirmation(false)}>Continue Shopping</Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Payment Modal - Simple Version */}
+      <Modal show={showPayment} onHide={() => setShowPayment(false)} size="lg" centered>
+        <Modal.Header closeButton className="bg-primary text-white">
+          <Modal.Title>Payment Gateway - {formatIndianRupee(getCartTotal())}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="info">
+            <i className="bi bi-info-circle"></i> Demo Payment - Select any option to complete order
+          </Alert>
+          <div className="text-center p-4">
+            <Button variant="success" size="lg" onClick={handlePaymentSuccess} className="me-3">
+              <i className="bi bi-credit-card"></i> Pay with Card
+            </Button>
+            <Button variant="primary" size="lg" onClick={handlePaymentSuccess}>
+              <i className="bi bi-phone"></i> Pay with UPI
+            </Button>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowPayment(false)}>Cancel</Button>
+        </Modal.Footer>
       </Modal>
 
       {/* Navbar */}
       <Navbar bg="dark" variant="dark" expand="lg" sticky="top" className="shadow">
         <Container>
-          <Navbar.Brand href="#" className="d-flex align-items-center"><i className="bi bi-shop fs-3 me-2"></i><span className="fw-bold fs-4">ShopHub India</span></Navbar.Brand>
+          <Navbar.Brand href="#" className="d-flex align-items-center">
+            <i className="bi bi-shop fs-3 me-2"></i>
+            <span className="fw-bold fs-4">ShopHub India</span>
+          </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
-            <Form className="mx-auto w-50"><InputGroup><InputGroup.Text><i className="bi bi-search"></i></InputGroup.Text><Form.Control type="text" placeholder="Search products..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></InputGroup></Form>
+            <Form className="mx-auto w-50">
+              <InputGroup>
+                <InputGroup.Text><i className="bi bi-search"></i></InputGroup.Text>
+                <Form.Control type="text" placeholder="Search products..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              </InputGroup>
+            </Form>
             <Nav className="ms-auto align-items-center gap-2">
-              <Button variant="outline-light" onClick={() => setShowWishlist(true)} className="position-relative"><i className="bi bi-heart"></i> Wishlist{wishlist.length > 0 && <Badge bg="danger" pill className="position-absolute top-0 start-100 translate-middle">{wishlist.length}</Badge>}</Button>
-              <Button variant="outline-light" onClick={() => setShowCart(true)} className="position-relative"><i className="bi bi-cart3"></i> Cart{getCartCount() > 0 && <Badge bg="warning" pill className="position-absolute top-0 start-100 translate-middle">{getCartCount()}</Badge>}</Button>
-              {user ? (<div className="d-flex gap-2 align-items-center"><span className="text-light"><i className="bi bi-person-circle"></i> {user.name}</span>{user.isAdmin && <Button variant="info" size="sm" onClick={() => setShowAdmin(true)}><i className="bi bi-speedometer2"></i> Admin</Button>}<Button variant="outline-danger" size="sm" onClick={handleLogout}><i className="bi bi-box-arrow-right"></i></Button></div>) : (<Button variant="primary" onClick={() => setShowLogin(true)}><i className="bi bi-person"></i> Login</Button>)}
+              <Button variant="outline-light" onClick={() => setShowWishlist(true)} className="position-relative">
+                <i className="bi bi-heart"></i> Wishlist
+                {wishlist.length > 0 && <Badge bg="danger" pill className="position-absolute top-0 start-100 translate-middle">{wishlist.length}</Badge>}
+              </Button>
+              <Button variant="outline-light" onClick={() => setShowCart(true)} className="position-relative">
+                <i className="bi bi-cart3"></i> Cart
+                {getCartCount() > 0 && <Badge bg="warning" pill className="position-absolute top-0 start-100 translate-middle">{getCartCount()}</Badge>}
+              </Button>
+              {user ? (
+                <div className="d-flex gap-2 align-items-center">
+                  <span className="text-light"><i className="bi bi-person-circle"></i> {user.name}</span>
+                  {user.isAdmin && <Button variant="info" size="sm" onClick={() => setShowAdmin(true)}><i className="bi bi-speedometer2"></i> Admin</Button>}
+                  <Button variant="outline-danger" size="sm" onClick={handleLogout}><i className="bi bi-box-arrow-right"></i></Button>
+                </div>
+              ) : (
+                <Button variant="primary" onClick={() => setShowLogin(true)}><i className="bi bi-person"></i> Login</Button>
+              )}
             </Nav>
           </Navbar.Collapse>
         </Container>
       </Navbar>
 
       {/* Category Filter */}
-      <div className="category-bar bg-light py-3 border-bottom shadow-sm"><Container><div className="d-flex gap-2 flex-wrap justify-content-center">{categories.map((category) => (<Button key={category} variant={selectedCategory === category ? "primary" : "outline-secondary"} size="sm" onClick={() => setSelectedCategory(category)} className="rounded-pill px-3">{category}</Button>))}</div></Container></div>
+      <div className="category-bar bg-light py-3 border-bottom shadow-sm">
+        <Container>
+          <div className="d-flex gap-2 flex-wrap justify-content-center">
+            {categories.map((category) => (
+              <Button key={category} variant={selectedCategory === category ? "primary" : "outline-secondary"} size="sm" onClick={() => setSelectedCategory(category)} className="rounded-pill px-3">
+                {category}
+              </Button>
+            ))}
+          </div>
+        </Container>
+      </div>
 
       {/* Promo Banner */}
-      {showPromoBanner && (<div className="promo-banner py-2" style={{ background: 'linear-gradient(90deg, #ff6b6b, #feca57)' }}><Container><div className="d-flex justify-content-between align-items-center"><div className="text-dark"><i className="bi bi-megaphone-fill me-2"></i><strong>🔥 LIMITED TIME OFFER!</strong> Get 10% off on orders above ₹5,000 | Free Shipping on ₹50,000+</div><Button variant="link" className="text-dark p-0" onClick={() => setShowPromoBanner(false)}><i className="bi bi-x-lg"></i></Button></div></Container></div>)}
+      {showPromoBanner && (
+        <div className="promo-banner py-2" style={{ background: 'linear-gradient(90deg, #ff6b6b, #feca57)' }}>
+          <Container>
+            <div className="d-flex justify-content-between align-items-center">
+              <div className="text-dark">
+                <i className="bi bi-megaphone-fill me-2"></i>
+                <strong>🔥 LIMITED TIME OFFER!</strong> Get 10% off on orders above ₹5,000 | Free Shipping on ₹50,000+
+              </div>
+              <Button variant="link" className="text-dark p-0" onClick={() => setShowPromoBanner(false)}><i className="bi bi-x-lg"></i></Button>
+            </div>
+          </Container>
+        </div>
+      )}
 
       {/* Hero Banner */}
-      <div className="hero-banner bg-primary text-white py-5 mb-4"><Container className="text-center"><h1 className="display-4 fw-bold mb-3">Welcome to ShopHub India</h1><p className="lead mb-0">Amazing products at best prices!</p></Container></div>
+      <div className="hero-banner bg-primary text-white py-5 mb-4">
+        <Container className="text-center">
+          <h1 className="display-4 fw-bold mb-3">Welcome to ShopHub India</h1>
+          <p className="lead mb-0">Amazing products at best prices!</p>
+        </Container>
+      </div>
 
       {/* Products Grid */}
       <Container className="py-4">
-        <div className="d-flex justify-content-between align-items-center mb-4"><h3><i className="bi bi-grid-3x3-gap-fill me-2"></i>Featured Products</h3><Badge bg="secondary" pill className="fs-6">{filteredProducts.length} products</Badge></div>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h3><i className="bi bi-grid-3x3-gap-fill me-2"></i>Featured Products</h3>
+          <Badge bg="secondary" pill className="fs-6">{filteredProducts.length} products</Badge>
+        </div>
         <Row xs={1} sm={2} md={3} lg={4} className="g-4">
           {filteredProducts.map((product) => (
             <Col key={product.id}>
               <div className="product-card" onClick={() => viewProductDetail(product)}>
                 <div className="image-wrapper position-relative">
                   <Card.Img variant="top" src={product.image} className="product-img" />
-                  <Button variant={wishlist.some((item) => item.id === product.id) ? "danger" : "light"} size="sm" className="wishlist-btn position-absolute top-0 end-0 m-2 rounded-circle" onClick={(e) => { e.stopPropagation(); toggleWishlist(product); }}><i className={`bi ${wishlist.some((item) => item.id === product.id) ? 'bi-heart-fill' : 'bi-heart'}`}></i></Button>
+                  <Button variant={wishlist.some((item) => item.id === product.id) ? "danger" : "light"} size="sm" className="wishlist-btn position-absolute top-0 end-0 m-2 rounded-circle" onClick={(e) => { e.stopPropagation(); toggleWishlist(product); }}>
+                    <i className={`bi ${wishlist.some((item) => item.id === product.id) ? 'bi-heart-fill' : 'bi-heart'}`}></i>
+                  </Button>
                   {product.stock < 20 && <Badge bg="warning" className="stock-badge">Only {product.stock} left</Badge>}
                 </div>
                 <Card.Body className="d-flex flex-column">
-                  <div className="d-flex justify-content-between align-items-start mb-2"><Card.Title className="fs-6 fw-bold mb-0">{product.name}</Card.Title><Badge bg="info" pill>{product.brand}</Badge></div>
+                  <div className="d-flex justify-content-between align-items-start mb-2">
+                    <Card.Title className="fs-6 fw-bold mb-0">{product.name}</Card.Title>
+                    <Badge bg="info" pill>{product.brand}</Badge>
+                  </div>
                   <Card.Text className="small text-muted">{product.description.substring(0, 60)}...</Card.Text>
-                  <div className="rating mb-2">{'★'.repeat(Math.floor(product.rating))}{'☆'.repeat(5 - Math.floor(product.rating))}<span className="small text-muted ms-1">({product.rating})</span><Button variant="link" size="sm" className="p-0 ms-2" onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); setShowReview(true); }}><i className="bi bi-chat-dots"></i> Reviews</Button></div>
-                  <div className="mt-auto"><div className="d-flex justify-content-between align-items-center"><h5 className="text-primary mb-0 fw-bold">{formatIndianRupee(product.price)}</h5><Button variant="primary" size="sm" onClick={(e) => { e.stopPropagation(); addToCart(product); }} className="rounded-pill"><i className="bi bi-cart-plus"></i> Add</Button></div></div>
+                  <div className="rating mb-2">
+                    {'★'.repeat(Math.floor(product.rating))}{'☆'.repeat(5 - Math.floor(product.rating))}
+                    <span className="small text-muted ms-1">({product.rating})</span>
+                    <Button variant="link" size="sm" className="p-0 ms-2" onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); setShowReview(true); }}>
+                      <i className="bi bi-chat-dots"></i> Reviews
+                    </Button>
+                  </div>
+                  <div className="mt-auto">
+                    <div className="d-flex justify-content-between align-items-center">
+                      <h5 className="text-primary mb-0 fw-bold">{formatIndianRupee(product.price)}</h5>
+                      <Button variant="primary" size="sm" onClick={(e) => { e.stopPropagation(); addToCart(product); }} className="rounded-pill">
+                        <i className="bi bi-cart-plus"></i> Add
+                      </Button>
+                    </div>
+                  </div>
                 </Card.Body>
               </div>
             </Col>
@@ -392,47 +552,232 @@ function App() {
 
       {/* Wishlist Modal */}
       <Modal show={showWishlist} onHide={() => setShowWishlist(false)} size="lg" centered>
-        <Modal.Header closeButton className="bg-danger text-white"><Modal.Title><i className="bi bi-heart-fill me-2"></i>My Wishlist ({wishlist.length})</Modal.Title></Modal.Header>
-        <Modal.Body>{wishlist.length === 0 ? (<div className="text-center py-5"><i className="bi bi-emoji-frown fs-1"></i><p>Your wishlist is empty!</p></div>) : (<Row>{wishlist.map((product) => (<Col md={6} key={product.id} className="mb-3"><Card><Row className="g-0"><Col md={4}><Card.Img src={product.image} style={{ height: '100%', objectFit: 'cover' }} /></Col><Col md={8}><Card.Body><Card.Title className="fs-6">{product.name}</Card.Title><Card.Text className="text-primary fw-bold">{formatIndianRupee(product.price)}</Card.Text><Button size="sm" variant="primary" onClick={() => addToCart(product)}><i className="bi bi-cart-plus"></i> Add to Cart</Button></Card.Body></Col></Row></Card></Col>))}</Row>)}</Modal.Body>
+        <Modal.Header closeButton className="bg-danger text-white">
+          <Modal.Title><i className="bi bi-heart-fill me-2"></i>My Wishlist ({wishlist.length})</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {wishlist.length === 0 ? (
+            <div className="text-center py-5"><i className="bi bi-emoji-frown fs-1"></i><p>Your wishlist is empty!</p></div>
+          ) : (
+            <Row>
+              {wishlist.map((product) => (
+                <Col md={6} key={product.id} className="mb-3">
+                  <Card>
+                    <Row className="g-0">
+                      <Col md={4}><Card.Img src={product.image} style={{ height: '100%', objectFit: 'cover' }} /></Col>
+                      <Col md={8}>
+                        <Card.Body>
+                          <Card.Title className="fs-6">{product.name}</Card.Title>
+                          <Card.Text className="text-primary fw-bold">{formatIndianRupee(product.price)}</Card.Text>
+                          <Button size="sm" variant="primary" onClick={() => addToCart(product)}><i className="bi bi-cart-plus"></i> Add to Cart</Button>
+                        </Card.Body>
+                      </Col>
+                    </Row>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+          )}
+        </Modal.Body>
       </Modal>
 
       {/* Review Modal */}
       <Modal show={showReview} onHide={() => setShowReview(false)} centered>
         <Modal.Header closeButton><Modal.Title>Reviews for {selectedProduct?.name}</Modal.Title></Modal.Header>
         <Modal.Body>
-          <div className="mb-4"><h6>Write a Review</h6><Form.Group className="mb-2"><Form.Select value={reviewRating} onChange={(e) => setReviewRating(parseInt(e.target.value))}><option value={5}>★★★★★ (5)</option><option value={4}>★★★★☆ (4)</option><option value={3}>★★★☆☆ (3)</option><option value={2}>★★☆☆☆ (2)</option><option value={1}>★☆☆☆☆ (1)</option></Form.Select></Form.Group><Form.Group className="mb-2"><Form.Control as="textarea" rows={3} placeholder="Write your review..." value={reviewText} onChange={(e) => setReviewText(e.target.value)} /></Form.Group><Button variant="primary" onClick={addReview}>Submit Review</Button></div>
-          <hr /><h6>Customer Reviews</h6>{getProductReviews(selectedProduct?.id).length === 0 ? (<p className="text-muted">No reviews yet. Be the first to review!</p>) : (getProductReviews(selectedProduct?.id).map((review) => (<div key={review.id} className="mb-3 p-2 bg-light rounded"><div className="fw-bold">{review.userName}</div><div className="text-warning">{'★'.repeat(review.rating)}</div><div className="small">{review.comment}</div><div className="small text-muted">{new Date(review.date).toLocaleDateString()}</div></div>)))}
+          <div className="mb-4">
+            <h6>Write a Review</h6>
+            <Form.Group className="mb-2">
+              <Form.Select value={reviewRating} onChange={(e) => setReviewRating(parseInt(e.target.value))}>
+                <option value={5}>★★★★★ (5)</option>
+                <option value={4}>★★★★☆ (4)</option>
+                <option value={3}>★★★☆☆ (3)</option>
+                <option value={2}>★★☆☆☆ (2)</option>
+                <option value={1}>★☆☆☆☆ (1)</option>
+              </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-2">
+              <Form.Control as="textarea" rows={3} placeholder="Write your review..." value={reviewText} onChange={(e) => setReviewText(e.target.value)} />
+            </Form.Group>
+            <Button variant="primary" onClick={addReview}>Submit Review</Button>
+          </div>
+          <hr />
+          <h6>Customer Reviews</h6>
+          {getProductReviews(selectedProduct?.id).length === 0 ? (
+            <p className="text-muted">No reviews yet. Be the first to review!</p>
+          ) : (
+            getProductReviews(selectedProduct?.id).map((review) => (
+              <div key={review.id} className="mb-3 p-2 bg-light rounded">
+                <div className="fw-bold">{review.userName}</div>
+                <div className="text-warning">{'★'.repeat(review.rating)}</div>
+                <div className="small">{review.comment}</div>
+                <div className="small text-muted">{new Date(review.date).toLocaleDateString()}</div>
+              </div>
+            ))
+          )}
         </Modal.Body>
       </Modal>
 
       {/* Cart Modal */}
       <Modal show={showCart} onHide={() => setShowCart(false)} size="lg" centered>
-        <Modal.Header closeButton className="bg-primary text-white"><Modal.Title><i className="bi bi-cart3 me-2"></i>Your Cart ({getCartCount()} items)</Modal.Title></Modal.Header>
-        <Modal.Body>{cart.length === 0 ? (<div className="text-center py-5"><i className="bi bi-emoji-smile fs-1"></i><p>Your cart is empty!</p></div>) : (<Table responsive><thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Total</th><th></th></tr></thead><tbody>{cart.map((item) => (<tr key={item.id}><td className="align-middle"><div className="d-flex gap-2"><img src={item.image} alt={item.name} style={{ width: '50px', height: '50px', objectFit: 'cover' }} /><span className="fw-bold">{item.name}</span></div></td><td className="align-middle">{formatIndianRupee(item.price)}</td><td className="align-middle"><div className="d-flex gap-2"><Button size="sm" variant="outline-secondary" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</Button><span className="fw-bold">{item.quantity}</span><Button size="sm" variant="outline-secondary" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button></div></td><td className="align-middle fw-bold">{formatIndianRupee(item.price * item.quantity)}</td><td className="align-middle"><Button variant="link" className="text-danger" onClick={() => removeFromCart(item.id)}><i className="bi bi-trash"></i></Button></td></tr>))}</tbody><tfoot><tr className="table-active"><td colSpan="3" className="text-end fw-bold">Total:</td><td colSpan="2" className="fw-bold fs-5 text-primary">{formatIndianRupee(getCartTotal())}</td></tr></tfoot></Table>)}</Modal.Body>
-        <Modal.Footer><Button variant="secondary" onClick={() => setShowCart(false)}>Continue Shopping</Button>{cart.length > 0 && <Button variant="success" onClick={() => { setShowCart(false); setShowCheckout(true); }}><i className="bi bi-credit-card"></i> Checkout</Button>}</Modal.Footer>
+        <Modal.Header closeButton className="bg-primary text-white">
+          <Modal.Title><i className="bi bi-cart3 me-2"></i>Your Cart ({getCartCount()} items)</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {cart.length === 0 ? (
+            <div className="text-center py-5"><i className="bi bi-emoji-smile fs-1"></i><p>Your cart is empty!</p></div>
+          ) : (
+            <Table responsive>
+              <thead>
+                <tr><th>Product</th><th>Price</th><th>Qty</th><th>Total</th><th></th></tr>
+              </thead>
+              <tbody>
+                {cart.map((item) => (
+                  <tr key={item.id}>
+                    <td className="align-middle">
+                      <div className="d-flex gap-2">
+                        <img src={item.image} alt={item.name} style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
+                        <span className="fw-bold">{item.name}</span>
+                      </div>
+                    </td>
+                    <td className="align-middle">{formatIndianRupee(item.price)}</td>
+                    <td className="align-middle">
+                      <div className="d-flex gap-2">
+                        <Button size="sm" variant="outline-secondary" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</Button>
+                        <span className="fw-bold">{item.quantity}</span>
+                        <Button size="sm" variant="outline-secondary" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button>
+                      </div>
+                    </td>
+                    <td className="align-middle fw-bold">{formatIndianRupee(item.price * item.quantity)}</td>
+                    <td className="align-middle">
+                      <Button variant="link" className="text-danger" onClick={() => removeFromCart(item.id)}><i className="bi bi-trash"></i></Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="table-active">
+                  <td colSpan="3" className="text-end fw-bold">Total:</td>
+                  <td colSpan="2" className="fw-bold fs-5 text-primary">{formatIndianRupee(getCartTotal())}</td>
+                </tr>
+              </tfoot>
+            </Table>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowCart(false)}>Continue Shopping</Button>
+          {cart.length > 0 && <Button variant="success" onClick={() => { setShowCart(false); setShowCheckout(true); }}><i className="bi bi-credit-card"></i> Checkout</Button>}
+        </Modal.Footer>
       </Modal>
 
       {/* Checkout Modal */}
       <Modal show={showCheckout} onHide={() => setShowCheckout(false)} size="lg" centered>
-        <Modal.Header closeButton className="bg-success text-white"><Modal.Title><i className="bi bi-clipboard-check me-2"></i>Checkout</Modal.Title></Modal.Header>
-        <Modal.Body><Row><Col md={6}><h5>Order Summary</h5><div className="bg-light p-3 rounded">{cart.map((item) => (<div key={item.id} className="d-flex justify-content-between mb-2"><span>{item.name} x {item.quantity}</span><span>{formatIndianRupee(item.price * item.quantity)}</span></div>))}<hr /><div className="d-flex justify-content-between fw-bold"><span>Total:</span><span className="text-success">{formatIndianRupee(getCartTotal())}</span></div></div></Col><Col md={6}><h5>Shipping Details</h5><Form><Form.Control className="mb-2" type="text" name="fullName" placeholder="Full Name" value={shippingDetails.fullName} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="text" name="address" placeholder="Address" value={shippingDetails.address} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="text" name="city" placeholder="City" value={shippingDetails.city} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="text" name="state" placeholder="State" value={shippingDetails.state} onChange={handleCheckoutInput} /><Form.Control className="mb-2" type="text" name="pincode" placeholder="PIN Code" value={shippingDetails.pincode} onChange={handleCheckoutInput} required /><Form.Control className="mb-2" type="tel" name="phone" placeholder="Phone" value={shippingDetails.phone} onChange={handleCheckoutInput} required /><Form.Select name="paymentMethod" value={shippingDetails.paymentMethod} onChange={handleCheckoutInput}><option value="cod">💰 Cash on Delivery</option><option value="online">💳 Online Payment (UPI / Card)</option></Form.Select></Form></Col></Row></Modal.Body>
-        <Modal.Footer><Button variant="secondary" onClick={() => setShowCheckout(false)}>Back</Button><Button variant="success" onClick={placeOrder}>Place Order</Button></Modal.Footer>
+        <Modal.Header closeButton className="bg-success text-white">
+          <Modal.Title><i className="bi bi-clipboard-check me-2"></i>Checkout</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Row>
+            <Col md={6}>
+              <h5>Order Summary</h5>
+              <div className="bg-light p-3 rounded">
+                {cart.map((item) => (
+                  <div key={item.id} className="d-flex justify-content-between mb-2">
+                    <span>{item.name} x {item.quantity}</span>
+                    <span>{formatIndianRupee(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+                <hr />
+                <div className="d-flex justify-content-between fw-bold">
+                  <span>Total:</span>
+                  <span className="text-success">{formatIndianRupee(getCartTotal())}</span>
+                </div>
+              </div>
+            </Col>
+            <Col md={6}>
+              <h5>Shipping Details</h5>
+              <Form>
+                <Form.Control className="mb-2" type="text" name="fullName" placeholder="Full Name" value={shippingDetails.fullName} onChange={handleCheckoutInput} required />
+                <Form.Control className="mb-2" type="text" name="address" placeholder="Address" value={shippingDetails.address} onChange={handleCheckoutInput} required />
+                <Form.Control className="mb-2" type="text" name="city" placeholder="City" value={shippingDetails.city} onChange={handleCheckoutInput} required />
+                <Form.Control className="mb-2" type="text" name="state" placeholder="State" value={shippingDetails.state} onChange={handleCheckoutInput} />
+                <Form.Control className="mb-2" type="text" name="pincode" placeholder="PIN Code" value={shippingDetails.pincode} onChange={handleCheckoutInput} required />
+                <Form.Control className="mb-2" type="tel" name="phone" placeholder="Phone" value={shippingDetails.phone} onChange={handleCheckoutInput} required />
+                <Form.Select name="paymentMethod" value={shippingDetails.paymentMethod} onChange={handleCheckoutInput}>
+                  <option value="cod">💰 Cash on Delivery</option>
+                  <option value="online">💳 Online Payment (UPI / Card)</option>
+                </Form.Select>
+              </Form>
+            </Col>
+          </Row>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowCheckout(false)}>Back</Button>
+          <Button variant="success" onClick={placeOrder}>Place Order</Button>
+        </Modal.Footer>
       </Modal>
 
       {/* Login Modal */}
       <Modal show={showLogin} onHide={() => setShowLogin(false)} centered>
-        <Modal.Header closeButton className="bg-primary text-white"><Modal.Title><i className="bi bi-person-circle me-2"></i>{isLogin ? 'Login' : 'Register'}</Modal.Title></Modal.Header>
-        <Modal.Body><Form onSubmit={handleLogin}>{!isLogin && <Form.Control className="mb-3" type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required />}<Form.Control className="mb-3" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required /><Form.Control className="mb-3" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required /><Button type="submit" variant="primary" className="w-100">{isLogin ? 'Login' : 'Register'}</Button></Form><div className="text-center mt-3"><Button variant="link" onClick={() => setIsLogin(!isLogin)}>{isLogin ? "New user? Register" : "Existing user? Login"}</Button></div><Alert variant="info" className="mt-3 small"><i className="bi bi-shield-lock"></i> Create account to start shopping!</Alert></Modal.Body>
+        <Modal.Header closeButton className="bg-primary text-white">
+          <Modal.Title><i className="bi bi-person-circle me-2"></i>{isLogin ? 'Login' : 'Register'}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={handleLogin}>
+            {!isLogin && <Form.Control className="mb-3" type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required />}
+            <Form.Control className="mb-3" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Form.Control className="mb-3" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <Button type="submit" variant="primary" className="w-100">{isLogin ? 'Login' : 'Register'}</Button>
+          </Form>
+          <div className="text-center mt-3">
+            <Button variant="link" onClick={() => setIsLogin(!isLogin)}>
+              {isLogin ? "New user? Register" : "Existing user? Login"}
+            </Button>
+          </div>
+          <Alert variant="info" className="mt-3 small">
+            <i className="bi bi-shield-lock"></i> Create account to start shopping!
+          </Alert>
+        </Modal.Body>
       </Modal>
 
       {/* Floating WhatsApp Button */}
-      <a href="https://wa.me/919876543210?text=Hi%20ShopHub%2C%20I%20need%20help%20with%20my%20order" target="_blank" rel="noopener noreferrer" style={{ position: 'fixed', bottom: '80px', right: '20px', zIndex: 1000, backgroundColor: '#25D366', color: 'white', borderRadius: '50%', width: '55px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', transition: 'transform 0.3s' }} onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'} onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}><i className="bi bi-whatsapp" style={{ fontSize: '30px' }}></i></a>
+      <a href="https://wa.me/919876543210?text=Hi%20ShopHub%2C%20I%20need%20help%20with%20my%20order" target="_blank" rel="noopener noreferrer" style={{ position: 'fixed', bottom: '80px', right: '20px', zIndex: 1000, backgroundColor: '#25D366', color: 'white', borderRadius: '50%', width: '55px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', transition: 'transform 0.3s' }} onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'} onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}>
+        <i className="bi bi-whatsapp" style={{ fontSize: '30px' }}></i>
+      </a>
 
       {/* Floating Cart Button */}
-      {cart.length > 0 && (<button onClick={() => setShowCart(true)} style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 1000, backgroundColor: '#1a1a2e', color: 'white', borderRadius: '50%', width: '55px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: 'none', transition: 'transform 0.3s', animation: 'pulse 1.5s infinite' }} onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'} onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}><i className="bi bi-cart3" style={{ fontSize: '24px' }}></i><span style={{ position: 'absolute', top: '-5px', right: '-5px', backgroundColor: '#ff6b6b', borderRadius: '50%', width: '20px', height: '20px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{getCartCount()}</span></button>)}
+      {cart.length > 0 && (
+        <button onClick={() => setShowCart(true)} style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 1000, backgroundColor: '#1a1a2e', color: 'white', borderRadius: '50%', width: '55px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: 'none', transition: 'transform 0.3s', animation: 'pulse 1.5s infinite' }} onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'} onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}>
+          <i className="bi bi-cart3" style={{ fontSize: '24px' }}></i>
+          <span style={{ position: 'absolute', top: '-5px', right: '-5px', backgroundColor: '#ff6b6b', borderRadius: '50%', width: '20px', height: '20px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{getCartCount()}</span>
+        </button>
+      )}
 
       {/* Footer */}
-      <footer className="bg-dark text-white mt-5 py-4"><Container><Row><Col md={4}><h5><i className="bi bi-shop"></i> ShopHub India</h5><p className="small">Your one-stop destination for quality products.</p></Col><Col md={4}><h5>Quick Links</h5><ul className="list-unstyled small"><li><a href="#" className="text-white-50">About Us</a></li><li><a href="#" className="text-white-50">Contact</a></li><li><a href="#" className="text-white-50">Returns</a></li></ul></Col><Col md={4}><h5>Contact</h5><p className="small mb-1"><i className="bi bi-envelope"></i> support@shophub.com</p><p className="small"><i className="bi bi-telephone"></i> +91 98765 43210</p></Col></Row><hr /><p className="text-center small mb-0">&copy; 2025 ShopHub India. All rights reserved.</p></Container></footer>
+      <footer className="bg-dark text-white mt-5 py-4">
+        <Container>
+          <Row>
+            <Col md={4}>
+              <h5><i className="bi bi-shop"></i> ShopHub India</h5>
+              <p className="small">Your one-stop destination for quality products.</p>
+            </Col>
+            <Col md={4}>
+              <h5>Quick Links</h5>
+              <ul className="list-unstyled small">
+                <li><a href="#" className="text-white-50">About Us</a></li>
+                <li><a href="#" className="text-white-50">Contact</a></li>
+                <li><a href="#" className="text-white-50">Returns</a></li>
+              </ul>
+            </Col>
+            <Col md={4}>
+              <h5>Contact</h5>
+              <p className="small mb-1"><i className="bi bi-envelope"></i> support@shophub.com</p>
+              <p className="small"><i className="bi bi-telephone"></i> +91 98765 43210</p>
+            </Col>
+          </Row>
+          <hr />
+          <p className="text-center small mb-0">&copy; 2025 ShopHub India. All rights reserved.</p>
+        </Container>
+      </footer>
     </div>
   );
 }
