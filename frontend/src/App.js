@@ -429,4 +429,12 @@ function App() {
       <a href="https://wa.me/919876543210?text=Hi%20ShopHub%2C%20I%20need%20help%20with%20my%20order" target="_blank" rel="noopener noreferrer" style={{ position: 'fixed', bottom: '80px', right: '20px', zIndex: 1000, backgroundColor: '#25D366', color: 'white', borderRadius: '50%', width: '55px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', transition: 'transform 0.3s' }} onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'} onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}><i className="bi bi-whatsapp" style={{ fontSize: '30px' }}></i></a>
 
       {/* Floating Cart Button */}
-      {cart.length > 0 &&
+      {cart.length > 0 && (<button onClick={() => setShowCart(true)} style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 1000, backgroundColor: '#1a1a2e', color: 'white', borderRadius: '50%', width: '55px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: 'none', transition: 'transform 0.3s', animation: 'pulse 1.5s infinite' }} onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'} onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}><i className="bi bi-cart3" style={{ fontSize: '24px' }}></i><span style={{ position: 'absolute', top: '-5px', right: '-5px', backgroundColor: '#ff6b6b', borderRadius: '50%', width: '20px', height: '20px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{getCartCount()}</span></button>)}
+
+      {/* Footer */}
+      <footer className="bg-dark text-white mt-5 py-4"><Container><Row><Col md={4}><h5><i className="bi bi-shop"></i> ShopHub India</h5><p className="small">Your one-stop destination for quality products.</p></Col><Col md={4}><h5>Quick Links</h5><ul className="list-unstyled small"><li><a href="#" className="text-white-50">About Us</a></li><li><a href="#" className="text-white-50">Contact</a></li><li><a href="#" className="text-white-50">Returns</a></li></ul></Col><Col md={4}><h5>Contact</h5><p className="small mb-1"><i className="bi bi-envelope"></i> support@shophub.com</p><p className="small"><i className="bi bi-telephone"></i> +91 98765 43210</p></Col></Row><hr /><p className="text-center small mb-0">&copy; 2025 ShopHub India. All rights reserved.</p></Container></footer>
+    </div>
+  );
+}
+
+export default App;
