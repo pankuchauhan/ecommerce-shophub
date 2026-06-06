@@ -3,11 +3,54 @@ import { Container, Row, Col, Card, Button, Navbar, Nav, Form, InputGroup, Badge
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import AdminPanel from './AdminPanel';
+import CustomerDashboard from './CustomerDashboard';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
+import { sendOrderConfirmation, sendWelcomeEmail } from './services/emailService';
 
 // ⭐⭐⭐ APNI GOOGLE CLIENT ID YAHAN PASTE KARO ⭐⭐⭐
 const GOOGLE_CLIENT_ID = '1060866942072-42gp0tb4lebp01g5g4v0lm22iriied33.apps.googleusercontent.com';
+
+// Search Suggestions Component
+const SearchSuggestions = ({ searchTerm, onSelect, products, formatIndianRupee }) => {
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    if (searchTerm.length > 1) {
+      const filtered = products.filter(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.brand.toLowerCase().includes(searchTerm.toLowerCase())
+      ).slice(0, 5);
+      setSuggestions(filtered);
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  }, [searchTerm, products]);
+
+  if (!showSuggestions || suggestions.length === 0) return null;
+
+  return (
+    <div className="search-suggestions">
+      {suggestions.map((product) => (
+        <div 
+          key={product.id} 
+          className="suggestion-item"
+          onClick={() => onSelect(product)}
+        >
+          <img src={product.image} alt={product.name} className="suggestion-img" />
+          <div className="suggestion-info">
+            <div className="suggestion-name">{product.name}</div>
+            <div className="suggestion-brand">{product.brand}</div>
+            <div className="suggestion-price">{formatIndianRupee(product.price)}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 // Product Detail Modal Component
 const ProductDetailModal = ({ show, onClose, product, onAddToCart, onBuyNow, formatIndianRupee }) => {
@@ -79,6 +122,7 @@ function App() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [showWishlist, setShowWishlist] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
@@ -157,6 +201,10 @@ function App() {
       const updatedUsers = [...storedUsers, newUser];
       localStorage.setItem('app_users', JSON.stringify(updatedUsers));
       existingUser = newUser;
+      
+      // Send welcome email for new users
+      sendWelcomeEmail(email, name);
+      showToastMessage(`Welcome ${name}! Check your email for a welcome gift! 🎁`);
     }
     
     const userData = {
@@ -240,6 +288,7 @@ function App() {
     const storedUsers = JSON.parse(localStorage.getItem('app_users') || '[]');
     
     if (!isLogin) {
+      // Register
       const existingUser = storedUsers.find(u => u.email === email);
       if (existingUser) {
         alert('Email already registered!');
@@ -253,8 +302,12 @@ function App() {
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       setShowLogin(false);
-      showToastMessage('Registration successful! 🎉');
+      
+      // Send welcome email
+      sendWelcomeEmail(email, name);
+      showToastMessage('Registration successful! 🎉 Check your email for welcome gift!');
     } else {
+      // Login
       const foundUser = storedUsers.find(u => u.email === email && u.password === password);
       if (foundUser) {
         const userData = { id: foundUser.id, name: foundUser.name, email, isAdmin: foundUser.isAdmin };
@@ -342,11 +395,12 @@ function App() {
       totalAmount: formatIndianRupee(getCartTotal()),
       customerName: shippingDetails.fullName,
       customerEmail: user?.email,
+      customerNameForOrder: user?.name,
       shippingAddress: `${shippingDetails.fullName}, ${shippingDetails.address}, ${shippingDetails.city} - ${shippingDetails.pincode}, Phone: ${shippingDetails.phone}`,
       paymentMethod: paymentMethod,
       status: status,
       date: new Date().toLocaleString(),
-      orderStatus: 'Processing'
+      orderStatus: status === 'Paid' ? 'Processing' : 'Pending'
     };
     
     const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]');
@@ -365,7 +419,13 @@ function App() {
     setShowCart(false);
     setShowCheckout(false);
     localStorage.removeItem('cart');
-    showToastMessage(`Order placed successfully! Order ID: ${orderDetails.orderId}`);
+    
+    // Send email notification
+    if (user?.email) {
+      sendOrderConfirmation(orderDetails, user.email, user.name);
+    }
+    
+    showToastMessage(`Order placed successfully! Order ID: ${orderDetails.orderId}. Check your email for confirmation!`);
   };
 
   const placeOrder = () => {
@@ -391,7 +451,13 @@ function App() {
     setShowCart(false);
     setShowCheckout(false);
     localStorage.removeItem('cart');
-    showToastMessage(`Order placed successfully! Order ID: ${orderDetails.orderId}`);
+    
+    // Send email notification
+    if (user?.email) {
+      sendOrderConfirmation(orderDetails, user.email, user.name);
+    }
+    
+    showToastMessage(`Order placed successfully! Order ID: ${orderDetails.orderId}. Check your email for confirmation!`);
   };
 
   const filteredProducts = products.filter((product) => {
@@ -401,6 +467,11 @@ function App() {
   });
 
   const categories = ['All', ...new Set(products.map((p) => p.category))];
+
+  // Show Customer Dashboard
+  if (showDashboard && user) {
+    return <CustomerDashboard user={user} onClose={() => setShowDashboard(false)} />;
+  }
 
   if (showAdmin && user?.isAdmin) {
     return <AdminPanel onBack={() => setShowAdmin(false)} />;
@@ -433,6 +504,9 @@ function App() {
                 <p><strong>Date:</strong> {confirmedOrder.date}</p>
                 <Alert variant="info" className="mt-3">
                   <i className="bi bi-truck"></i> Estimated Delivery: 3-5 business days
+                </Alert>
+                <Alert variant="success" className="mt-2">
+                  <i className="bi bi-envelope"></i> Order confirmation sent to your email!
                 </Alert>
               </>
             )}
@@ -474,12 +548,26 @@ function App() {
             </Navbar.Brand>
             <Navbar.Toggle aria-controls="basic-navbar-nav" />
             <Navbar.Collapse id="basic-navbar-nav">
-              <Form className="mx-auto w-50">
+              <div style={{ position: 'relative', flex: 1, maxWidth: '400px', margin: '0 auto' }}>
                 <InputGroup>
                   <InputGroup.Text><i className="bi bi-search"></i></InputGroup.Text>
-                  <Form.Control type="text" placeholder="Search products..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <Form.Control
+                    type="text"
+                    placeholder="Search products..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </InputGroup>
-              </Form>
+                <SearchSuggestions 
+                  searchTerm={searchTerm}
+                  onSelect={(product) => {
+                    setSearchTerm(product.name);
+                    viewProductDetail(product);
+                  }}
+                  products={products}
+                  formatIndianRupee={formatIndianRupee}
+                />
+              </div>
               <Nav className="ms-auto align-items-center gap-2">
                 <Button variant="outline-light" onClick={() => setShowWishlist(true)} className="position-relative">
                   <i className="bi bi-heart"></i> Wishlist
@@ -494,7 +582,9 @@ function App() {
                     {user.picture && (
                       <img src={user.picture} alt={user.name} style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
                     )}
-                    <span className="text-light"><i className="bi bi-person-circle"></i> {user.name}</span>
+                    <Button variant="outline-light" size="sm" onClick={() => setShowDashboard(true)}>
+                      <i className="bi bi-person-circle"></i> {user.name}
+                    </Button>
                     {user.isAdmin && <Button variant="info" size="sm" onClick={() => setShowAdmin(true)}><i className="bi bi-speedometer2"></i> Admin</Button>}
                     <Button variant="outline-danger" size="sm" onClick={handleLogout}><i className="bi bi-box-arrow-right"></i></Button>
                   </div>
@@ -620,7 +710,9 @@ function App() {
 
         {/* Review Modal */}
         <Modal show={showReview} onHide={() => setShowReview(false)} centered>
-          <Modal.Header closeButton><Modal.Title>Reviews for {selectedProduct?.name}</Modal.Title></Modal.Header>
+          <Modal.Header closeButton>
+            <Modal.Title>Reviews for {selectedProduct?.name}</Modal.Title>
+          </Modal.Header>
           <Modal.Body>
             <div className="mb-4">
               <h6>Write a Review</h6>
@@ -684,11 +776,11 @@ function App() {
                           <span className="fw-bold">{item.quantity}</span>
                           <Button size="sm" variant="outline-secondary" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button>
                         </div>
-                       </td>
+                      </td>
                       <td className="align-middle fw-bold">{formatIndianRupee(item.price * item.quantity)}</td>
                       <td className="align-middle">
                         <Button variant="link" className="text-danger" onClick={() => removeFromCart(item.id)}><i className="bi bi-trash"></i></Button>
-                       </td>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -753,7 +845,7 @@ function App() {
           </Modal.Footer>
         </Modal>
 
-        {/* ⭐⭐⭐ LOGIN MODAL WITH GOOGLE BUTTON ⭐⭐⭐ */}
+        {/* Login Modal */}
         <Modal show={showLogin} onHide={() => setShowLogin(false)} centered>
           <Modal.Header closeButton className="bg-primary text-white">
             <Modal.Title><i className="bi bi-person-circle me-2"></i>{isLogin ? 'Login' : 'Register'}</Modal.Title>
@@ -766,7 +858,6 @@ function App() {
               <Button type="submit" variant="primary" className="w-100">{isLogin ? 'Login' : 'Register'}</Button>
             </Form>
             
-            {/* ⭐⭐⭐ GOOGLE LOGIN BUTTON ⭐⭐⭐ */}
             <hr className="my-3" />
             <div className="text-center">
               <p className="text-muted small">Or continue with</p>
@@ -795,7 +886,7 @@ function App() {
               </Button>
             </div>
             <Alert variant="info" className="mt-3 small">
-              <i className="bi bi-shield-lock"></i> Create account to start shopping!
+              <i className="bi bi-shield-lock me-2"></i> Create account to start shopping!
             </Alert>
           </Modal.Body>
         </Modal>
@@ -818,21 +909,21 @@ function App() {
           <Container>
             <Row>
               <Col md={4}>
-                <h5><i className="bi bi-shop"></i> ShopHub India</h5>
+                <h5><i className="bi bi-shop me-2"></i> ShopHub India</h5>
                 <p className="small">Your one-stop destination for quality products.</p>
               </Col>
               <Col md={4}>
                 <h5>Quick Links</h5>
                 <ul className="list-unstyled small">
-                  <li><a href="#" className="text-white-50">About Us</a></li>
-                  <li><a href="#" className="text-white-50">Contact</a></li>
-                  <li><a href="#" className="text-white-50">Returns</a></li>
+                  <li><a href="#" className="text-white-50 text-decoration-none">About Us</a></li>
+                  <li><a href="#" className="text-white-50 text-decoration-none">Contact</a></li>
+                  <li><a href="#" className="text-white-50 text-decoration-none">Returns</a></li>
                 </ul>
               </Col>
               <Col md={4}>
                 <h5>Contact</h5>
-                <p className="small mb-1"><i className="bi bi-envelope"></i> support@shophub.com</p>
-                <p className="small"><i className="bi bi-telephone"></i> +91 98765 43210</p>
+                <p className="small mb-1"><i className="bi bi-envelope me-2"></i> support@shophub.com</p>
+                <p className="small"><i className="bi bi-telephone me-2"></i> +91 98765 43210</p>
               </Col>
             </Row>
             <hr />
