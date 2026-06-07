@@ -29,7 +29,6 @@ const loadProductsFromStorage = () => {
   if (savedProducts && JSON.parse(savedProducts).length > 0) {
     return JSON.parse(savedProducts);
   }
-  // Save default products to localStorage if empty
   localStorage.setItem('admin_products', JSON.stringify(DEFAULT_PRODUCTS));
   return DEFAULT_PRODUCTS;
 };
@@ -43,8 +42,8 @@ const SearchSuggestions = ({ searchTerm, onSelect, products, formatIndianRupee }
     if (searchTerm.length > 1) {
       const filtered = products.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.brand.toLowerCase().includes(searchTerm.toLowerCase())
+        (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase()))
       ).slice(0, 5);
       setSuggestions(filtered);
       setShowSuggestions(true);
@@ -66,7 +65,7 @@ const SearchSuggestions = ({ searchTerm, onSelect, products, formatIndianRupee }
           <img src={product.image} alt={product.name} className="suggestion-img" />
           <div className="suggestion-info">
             <div className="suggestion-name">{product.name}</div>
-            <div className="suggestion-brand">{product.brand}</div>
+            <div className="suggestion-brand">{product.brand || 'Generic'}</div>
             <div className="suggestion-price">{formatIndianRupee(product.price)}</div>
           </div>
         </div>
@@ -92,15 +91,15 @@ const ProductDetailModal = ({ show, onClose, product, onAddToCart, onBuyNow, for
           </div>
           <div className="product-detail-info">
             <div className="product-brand-badge">
-              <span className="brand-name">{product.brand}</span>
-              <span className="category-tag">{product.category}</span>
+              <span className="brand-name">{product.brand || 'Generic'}</span>
+              <span className="category-tag">{product.category || 'Other'}</span>
             </div>
             <h2 className="product-detail-name">{product.name}</h2>
             <div className="product-detail-rating">
-              {'★'.repeat(Math.floor(product.rating))}{'☆'.repeat(5 - Math.floor(product.rating))}
-              <span>({product.rating} out of 5)</span>
+              {'★'.repeat(Math.floor(product.rating || 0))}{'☆'.repeat(5 - Math.floor(product.rating || 0))}
+              <span>({product.rating || 0} out of 5)</span>
             </div>
-            <p className="product-detail-description">{product.description}</p>
+            <p className="product-detail-description">{product.description || 'No description available'}</p>
             <div className="price-section">
               <div className="current-price">{formatIndianRupee(product.price)}</div>
               <div className="tax-info">Inclusive of all taxes</div>
@@ -172,12 +171,10 @@ function App() {
 
   // Load data from localStorage on page load
   useEffect(() => {
-    // Load products from localStorage (synced with admin panel)
     const loadedProducts = loadProductsFromStorage();
     setProducts(loadedProducts);
     setLoading(false);
     
-    // Load user session
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       const userData = JSON.parse(savedUser);
@@ -185,13 +182,11 @@ function App() {
       loadWishlist(userData.id);
     }
     
-    // Load cart
     const savedCart = localStorage.getItem('cart');
     if (savedCart) {
       setCart(JSON.parse(savedCart));
     }
     
-    // Load orders
     const savedOrders = localStorage.getItem('orders');
     if (savedOrders) {
       setOrders(JSON.parse(savedOrders));
@@ -206,7 +201,6 @@ function App() {
     let existingUser = storedUsers.find(u => u.email === email);
     
     if (!existingUser) {
-      // Auto-register new user
       const newUser = {
         id: sub,
         name: name,
@@ -219,7 +213,6 @@ function App() {
       localStorage.setItem('app_users', JSON.stringify(updatedUsers));
       existingUser = newUser;
       
-      // Send welcome email for new users
       sendWelcomeEmail(email, name);
       showToastMessage(`Welcome ${name}! Check your email for a welcome gift! 🎁`);
     }
@@ -305,7 +298,6 @@ function App() {
     const storedUsers = JSON.parse(localStorage.getItem('app_users') || '[]');
     
     if (!isLogin) {
-      // Register
       const existingUser = storedUsers.find(u => u.email === email);
       if (existingUser) {
         alert('Email already registered!');
@@ -320,11 +312,9 @@ function App() {
       setUser(userData);
       setShowLogin(false);
       
-      // Send welcome email
       sendWelcomeEmail(email, name);
       showToastMessage('Registration successful! 🎉 Check your email for welcome gift!');
     } else {
-      // Login
       const foundUser = storedUsers.find(u => u.email === email && u.password === password);
       if (foundUser) {
         const userData = { id: foundUser.id, name: foundUser.name, email, isAdmin: foundUser.isAdmin };
@@ -437,7 +427,6 @@ function App() {
     setShowCheckout(false);
     localStorage.removeItem('cart');
     
-    // Send email notification
     if (user?.email) {
       sendOrderConfirmation(orderDetails, user.email, user.name);
     }
@@ -469,7 +458,6 @@ function App() {
     setShowCheckout(false);
     localStorage.removeItem('cart');
     
-    // Send email notification
     if (user?.email) {
       sendOrderConfirmation(orderDetails, user.email, user.name);
     }
@@ -485,7 +473,6 @@ function App() {
 
   const categories = ['All', ...new Set(products.map((p) => p.category))];
 
-  // Show Customer Dashboard
   if (showDashboard && user) {
     return <CustomerDashboard user={user} onClose={() => setShowDashboard(false)} />;
   }
@@ -669,12 +656,14 @@ function App() {
                   <Card.Body className="d-flex flex-column">
                     <div className="d-flex justify-content-between align-items-start mb-2">
                       <Card.Title className="fs-6 fw-bold mb-0">{product.name}</Card.Title>
-                      <Badge bg="info" pill>{product.brand}</Badge>
+                      <Badge bg="info" pill>{product.brand || 'Generic'}</Badge>
                     </div>
-                    <Card.Text className="small text-muted">{product.description.substring(0, 60)}...</Card.Text>
+                    <Card.Text className="small text-muted">
+                      {product.description ? product.description.substring(0, 60) : 'No description available'}...
+                    </Card.Text>
                     <div className="rating mb-2">
-                      {'★'.repeat(Math.floor(product.rating))}{'☆'.repeat(5 - Math.floor(product.rating))}
-                      <span className="small text-muted ms-1">({product.rating})</span>
+                      {'★'.repeat(Math.floor(product.rating || 0))}{'☆'.repeat(5 - Math.floor(product.rating || 0))}
+                      <span className="small text-muted ms-1">({product.rating || 0})</span>
                       <Button variant="link" size="sm" className="p-0 ms-2" onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); setShowReview(true); }}>
                         <i className="bi bi-chat-dots"></i> Reviews
                       </Button>
@@ -694,6 +683,8 @@ function App() {
           </Row>
         </Container>
 
+        {/* Rest of the modals and footer remain same as before */}
+        
         {/* Wishlist Modal */}
         <Modal show={showWishlist} onHide={() => setShowWishlist(false)} size="lg" centered>
           <Modal.Header closeButton className="bg-danger text-white">
@@ -785,7 +776,7 @@ function App() {
                           <img src={item.image} alt={item.name} style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
                           <span className="fw-bold">{item.name}</span>
                         </div>
-                        </td>
+                       </td>
                       <td className="align-middle">{formatIndianRupee(item.price)}</td>
                       <td className="align-middle">
                         <div className="d-flex gap-2">
@@ -793,11 +784,11 @@ function App() {
                           <span className="fw-bold">{item.quantity}</span>
                           <Button size="sm" variant="outline-secondary" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button>
                         </div>
-                      </td>
+                       </td>
                       <td className="align-middle fw-bold">{formatIndianRupee(item.price * item.quantity)}</td>
                       <td className="align-middle">
                         <Button variant="link" className="text-danger" onClick={() => removeFromCart(item.id)}><i className="bi bi-trash"></i></Button>
-                      </td>
+                       </td>
                     </tr>
                   ))}
                 </tbody>

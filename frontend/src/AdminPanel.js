@@ -9,6 +9,8 @@ function AdminPanel({ onBack }) {
   const [editingProduct, setEditingProduct] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
   const [productForm, setProductForm] = useState({
     name: '', price: '', description: '', category: 'Electronics', image: '', stock: 10, brand: ''
   });
@@ -18,7 +20,6 @@ function AdminPanel({ onBack }) {
   }, []);
 
   const loadData = () => {
-    // Load products from localStorage (this is the source of truth)
     const savedProducts = JSON.parse(localStorage.getItem('admin_products') || '[]');
     const defaultProducts = [
       { id: 1, name: "Apple AirPods Pro", price: 24999, category: "Electronics", stock: 25, brand: "Apple", image: "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=400", description: "Active Noise Cancellation", rating: 4.8 },
@@ -38,11 +39,9 @@ function AdminPanel({ onBack }) {
       setProducts(savedProducts);
     }
     
-    // Load orders
     const savedOrders = JSON.parse(localStorage.getItem('orders') || '[]');
     setOrders(savedOrders);
     
-    // Calculate stats
     const totalRevenue = savedOrders.reduce((sum, order) => sum + (order.total || 0), 0);
     setStats({
       totalProducts: products.length,
@@ -56,8 +55,28 @@ function AdminPanel({ onBack }) {
     localStorage.setItem('admin_products', JSON.stringify(newProducts));
     setProducts(newProducts);
     setStats({ ...stats, totalProducts: newProducts.length });
-    // Trigger a custom event to notify App.js that products have changed
     window.dispatchEvent(new Event('productsUpdated'));
+  };
+
+  // Handle image upload
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result;
+        setImagePreview(base64String);
+        setProductForm({ ...productForm, image: base64String });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle image URL input
+  const handleImageUrl = (e) => {
+    const url = e.target.value;
+    setImagePreview(url);
+    setProductForm({ ...productForm, image: url });
   };
 
   const handleSaveProduct = () => {
@@ -70,6 +89,8 @@ function AdminPanel({ onBack }) {
     }
     setShowProductModal(false);
     setEditingProduct(null);
+    setSelectedImage(null);
+    setImagePreview('');
     setProductForm({ name: '', price: '', description: '', category: 'Electronics', image: '', stock: 10, brand: '' });
   };
 
@@ -105,22 +126,6 @@ function AdminPanel({ onBack }) {
     }).format(amount);
   };
 
-  const getStatusBadge = (status) => {
-    const statusColors = {
-      'pending': 'warning',
-      'processing': 'info',
-      'shipped': 'primary',
-      'delivered': 'success',
-      'cancelled': 'danger',
-      'Pending': 'warning',
-      'Processing': 'info',
-      'Shipped': 'primary',
-      'Delivered': 'success',
-      'Cancelled': 'danger'
-    };
-    return statusColors[status] || 'secondary';
-  };
-
   return (
     <div>
       <Navbar bg="dark" variant="dark" className="mb-4">
@@ -135,7 +140,6 @@ function AdminPanel({ onBack }) {
       </Navbar>
 
       <Container>
-        {/* Stats Cards */}
         <Row className="mb-4">
           <Col md={3}>
             <Card className="text-center bg-primary text-white">
@@ -149,6 +153,7 @@ function AdminPanel({ onBack }) {
             <Card className="text-center bg-success text-white">
               <Card.Body>
                 <h3>{orders.length}</h3>
+                <p>Orders</p>
               </Card.Body>
             </Card>
           </Col>
@@ -170,43 +175,44 @@ function AdminPanel({ onBack }) {
           </Col>
         </Row>
 
-        {/* Products Management */}
         <Card className="mb-4">
           <Card.Header className="d-flex justify-content-between align-items-center">
             <h5 className="mb-0"><i className="bi bi-box-seam"></i> Products Management</h5>
-            <Button variant="primary" size="sm" onClick={() => { setEditingProduct(null); setProductForm({ name: '', price: '', description: '', category: 'Electronics', image: '', stock: 10, brand: '' }); setShowProductModal(true); }}>
+            <Button variant="primary" size="sm" onClick={() => { setEditingProduct(null); setProductForm({ name: '', price: '', description: '', category: 'Electronics', image: '', stock: 10, brand: '' }); setImagePreview(''); setShowProductModal(true); }}>
               <i className="bi bi-plus-circle"></i> Add Product
             </Button>
           </Card.Header>
           <Card.Body>
             <Table responsive striped hover>
               <thead>
-                <tr><th>ID</th><th>Name</th><th>Price</th><th>Category</th><th>Stock</th><th>Actions</th></tr>
+                <tr><th>ID</th><th>Image</th><th>Name</th><th>Price</th><th>Category</th><th>Stock</th><th>Actions</th></tr>
               </thead>
               <tbody>
                 {products.map(p => (
                   <tr key={p.id}>
                     <td>{p.id}</td>
+                    <td style={{ width: '60px' }}>
+                      <img src={p.image} alt={p.name} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px' }} />
+                    </td>
                     <td>{p.name}</td>
                     <td>{formatIndianRupee(p.price)}</td>
                     <td>{p.category}</td>
                     <td>{p.stock}</td>
                     <td>
-                      <Button size="sm" variant="warning" className="me-2" onClick={() => { setEditingProduct(p); setProductForm(p); setShowProductModal(true); }}>
+                      <Button size="sm" variant="warning" className="me-2" onClick={() => { setEditingProduct(p); setProductForm(p); setImagePreview(p.image); setShowProductModal(true); }}>
                         <i className="bi bi-pencil"></i> Edit
                       </Button>
                       <Button size="sm" variant="danger" onClick={() => deleteProduct(p.id)}>
                         <i className="bi bi-trash"></i> Delete
                       </Button>
-                    </td>
-                  </tr>
+                     </td>
+                   </tr>
                 ))}
               </tbody>
             </Table>
           </Card.Body>
         </Card>
 
-        {/* Orders Management */}
         <Card>
           <Card.Header>
             <h5 className="mb-0"><i className="bi bi-truck"></i> Orders Management</h5>
@@ -217,14 +223,7 @@ function AdminPanel({ onBack }) {
             ) : (
               <Table responsive striped hover>
                 <thead>
-                  <tr>
-                    <th>Order ID</th>
-                    <th>Customer</th>
-                    <th>Total</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Actions</th>
-                  </tr>
+                  <tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                   {orders.map(order => (
@@ -248,14 +247,7 @@ function AdminPanel({ onBack }) {
                       </td>
                       <td className="small">{order.date}</td>
                       <td>
-                        <Button 
-                          size="sm" 
-                          variant="danger"
-                          onClick={() => {
-                            setOrderToDelete(order);
-                            setShowDeleteConfirm(true);
-                          }}
-                        >
+                        <Button size="sm" variant="danger" onClick={() => { setOrderToDelete(order); setShowDeleteConfirm(true); }}>
                           <i className="bi bi-trash"></i> Delete
                         </Button>
                       </td>
@@ -268,27 +260,139 @@ function AdminPanel({ onBack }) {
         </Card>
       </Container>
 
-      {/* Add/Edit Product Modal */}
-      <Modal show={showProductModal} onHide={() => setShowProductModal(false)}>
+      {/* Add/Edit Product Modal with Image Upload */}
+      <Modal show={showProductModal} onHide={() => setShowProductModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>{editingProduct ? 'Edit Product' : 'Add New Product'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Control className="mb-2" placeholder="Product Name" value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} />
-            <Form.Control className="mb-2" type="number" placeholder="Price (₹)" value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) })} />
-            <Form.Control className="mb-2" placeholder="Description" value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} />
-            <Form.Select className="mb-2" value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}>
-              <option>Electronics</option>
-              <option>Clothing</option>
-              <option>Accessories</option>
-              <option>Sports</option>
-              <option>Home</option>
-              <option>Beauty</option>
-            </Form.Select>
-            <Form.Control className="mb-2" placeholder="Image URL" value={productForm.image} onChange={(e) => setProductForm({ ...productForm, image: e.target.value })} />
-            <Form.Control className="mb-2" type="number" placeholder="Stock Quantity" value={productForm.stock} onChange={(e) => setProductForm({ ...productForm, stock: parseInt(e.target.value) })} />
-            <Form.Control className="mb-2" placeholder="Brand" value={productForm.brand} onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })} />
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Product Name</Form.Label>
+                  <Form.Control 
+                    placeholder="Enter product name" 
+                    value={productForm.name} 
+                    onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} 
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Price (₹)</Form.Label>
+                  <Form.Control 
+                    type="number" 
+                    placeholder="Enter price" 
+                    value={productForm.price} 
+                    onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) })} 
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Description</Form.Label>
+                  <Form.Control 
+                    as="textarea" 
+                    rows={3} 
+                    placeholder="Enter product description" 
+                    value={productForm.description} 
+                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} 
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Category</Form.Label>
+                  <Form.Select 
+                    value={productForm.category} 
+                    onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                  >
+                    <option>Electronics</option>
+                    <option>Clothing</option>
+                    <option>Accessories</option>
+                    <option>Sports</option>
+                    <option>Home</option>
+                    <option>Beauty</option>
+                  </Form.Select>
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Stock Quantity</Form.Label>
+                  <Form.Control 
+                    type="number" 
+                    placeholder="Enter stock" 
+                    value={productForm.stock} 
+                    onChange={(e) => setProductForm({ ...productForm, stock: parseInt(e.target.value) })} 
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Brand</Form.Label>
+                  <Form.Control 
+                    placeholder="Enter brand name" 
+                    value={productForm.brand} 
+                    onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })} 
+                  />
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Product Image</Form.Label>
+                  
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="mb-3 text-center">
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        style={{ 
+                          width: '200px', 
+                          height: '200px', 
+                          objectFit: 'cover', 
+                          borderRadius: '12px',
+                          border: '2px solid #ddd'
+                        }} 
+                      />
+                    </div>
+                  )}
+
+                  {/* Option 1: Upload from Computer */}
+                  <div className="mb-3">
+                    <Form.Label className="text-primary">
+                      <i className="bi bi-cloud-upload"></i> Upload from Computer
+                    </Form.Label>
+                    <Form.Control 
+                      type="file" 
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                    />
+                    <Form.Text className="text-muted">
+                      Upload JPG, PNG, GIF (Max 5MB)
+                    </Form.Text>
+                  </div>
+
+                  {/* OR Divider */}
+                  <div className="text-center my-2">
+                    <span className="bg-light px-3 py-1 rounded">OR</span>
+                  </div>
+
+                  {/* Option 2: Image URL */}
+                  <div>
+                    <Form.Label className="text-secondary">
+                      <i className="bi bi-link"></i> Image URL
+                    </Form.Label>
+                    <Form.Control 
+                      type="text" 
+                      placeholder="https://example.com/image.jpg"
+                      value={productForm.image && !productForm.image.startsWith('data:') ? productForm.image : ''}
+                      onChange={handleImageUrl}
+                    />
+                    <Form.Text className="text-muted">
+                      Enter image URL from web
+                    </Form.Text>
+                  </div>
+                </Form.Group>
+              </Col>
+            </Row>
           </Form>
         </Modal.Body>
         <Modal.Footer>
