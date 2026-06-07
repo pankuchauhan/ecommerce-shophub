@@ -11,6 +11,29 @@ import { sendOrderConfirmation, sendWelcomeEmail } from './services/emailService
 // ⭐⭐⭐ APNI GOOGLE CLIENT ID YAHAN PASTE KARO ⭐⭐⭐
 const GOOGLE_CLIENT_ID = '1060866942072-42gp0tb4lebp01g5g4v0lm22iriied33.apps.googleusercontent.com';
 
+// Default Products
+const DEFAULT_PRODUCTS = [
+  { id: 1, name: "Apple AirPods Pro", price: 24999, description: "Active Noise Cancellation, Spatial audio", category: "Electronics", image: "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=400", stock: 25, brand: "Apple", rating: 4.8 },
+  { id: 2, name: "Sony WH-1000XM5", price: 29999, description: "Industry-leading noise cancellation", category: "Electronics", image: "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400", stock: 15, brand: "Sony", rating: 4.9 },
+  { id: 3, name: "iPhone 15 Pro", price: 134900, description: "A17 Pro chip, 48MP camera", category: "Electronics", image: "https://images.unsplash.com/photo-1696446701796-da61225697cc?w=400", stock: 10, brand: "Apple", rating: 4.9 },
+  { id: 4, name: "Nike Air Max", price: 12999, description: "Comfortable running shoes", category: "Clothing", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400", stock: 40, brand: "Nike", rating: 4.6 },
+  { id: 5, name: "Levi's Jeans", price: 3999, description: "Premium denim jeans", category: "Clothing", image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400", stock: 50, brand: "Levi's", rating: 4.5 },
+  { id: 6, name: "Fossil Gen 6 Watch", price: 22999, description: "Smart watch with Wear OS", category: "Accessories", image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=400", stock: 20, brand: "Fossil", rating: 4.7 },
+  { id: 7, name: "Titan Analog Watch", price: 8999, description: "Elegant analog watch", category: "Accessories", image: "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?w=400", stock: 30, brand: "Titan", rating: 4.5 },
+  { id: 8, name: "MacBook Pro M3", price: 169900, description: "M3 chip, Liquid Retina XDR", category: "Electronics", image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400", stock: 8, brand: "Apple", rating: 4.9 }
+];
+
+// Function to load products from localStorage
+const loadProductsFromStorage = () => {
+  const savedProducts = localStorage.getItem('admin_products');
+  if (savedProducts && JSON.parse(savedProducts).length > 0) {
+    return JSON.parse(savedProducts);
+  }
+  // Save default products to localStorage if empty
+  localStorage.setItem('admin_products', JSON.stringify(DEFAULT_PRODUCTS));
+  return DEFAULT_PRODUCTS;
+};
+
 // Search Suggestions Component
 const SearchSuggestions = ({ searchTerm, onSelect, products, formatIndianRupee }) => {
   const [suggestions, setSuggestions] = useState([]);
@@ -147,22 +170,14 @@ function App() {
     fullName: '', address: '', city: '', state: '', pincode: '', phone: '', paymentMethod: 'cod'
   });
 
-  const allProducts = [
-    { id: 1, name: "Apple AirPods Pro", price: 24999, description: "Active Noise Cancellation, Spatial audio", category: "Electronics", image: "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=400", stock: 25, brand: "Apple", rating: 4.8 },
-    { id: 2, name: "Sony WH-1000XM5", price: 29999, description: "Industry-leading noise cancellation", category: "Electronics", image: "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400", stock: 15, brand: "Sony", rating: 4.9 },
-    { id: 3, name: "iPhone 15 Pro", price: 134900, description: "A17 Pro chip, 48MP camera", category: "Electronics", image: "https://images.unsplash.com/photo-1696446701796-da61225697cc?w=400", stock: 10, brand: "Apple", rating: 4.9 },
-    { id: 4, name: "Nike Air Max", price: 12999, description: "Comfortable running shoes", category: "Clothing", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400", stock: 40, brand: "Nike", rating: 4.6 },
-    { id: 5, name: "Levi's Jeans", price: 3999, description: "Premium denim jeans", category: "Clothing", image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400", stock: 50, brand: "Levi's", rating: 4.5 },
-    { id: 6, name: "Fossil Gen 6 Watch", price: 22999, description: "Smart watch with Wear OS", category: "Accessories", image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=400", stock: 20, brand: "Fossil", rating: 4.7 },
-    { id: 7, name: "Titan Analog Watch", price: 8999, description: "Elegant analog watch", category: "Accessories", image: "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?w=400", stock: 30, brand: "Titan", rating: 4.5 },
-    { id: 8, name: "MacBook Pro M3", price: 169900, description: "M3 chip, Liquid Retina XDR", category: "Electronics", image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400", stock: 8, brand: "Apple", rating: 4.9 }
-  ];
-
   // Load data from localStorage on page load
   useEffect(() => {
-    setProducts(allProducts);
+    // Load products from localStorage (synced with admin panel)
+    const loadedProducts = loadProductsFromStorage();
+    setProducts(loadedProducts);
     setLoading(false);
     
+    // Load user session
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       const userData = JSON.parse(savedUser);
@@ -170,11 +185,13 @@ function App() {
       loadWishlist(userData.id);
     }
     
+    // Load cart
     const savedCart = localStorage.getItem('cart');
     if (savedCart) {
       setCart(JSON.parse(savedCart));
     }
     
+    // Load orders
     const savedOrders = localStorage.getItem('orders');
     if (savedOrders) {
       setOrders(JSON.parse(savedOrders));
@@ -768,7 +785,7 @@ function App() {
                           <img src={item.image} alt={item.name} style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
                           <span className="fw-bold">{item.name}</span>
                         </div>
-                       </td>
+                        </td>
                       <td className="align-middle">{formatIndianRupee(item.price)}</td>
                       <td className="align-middle">
                         <div className="d-flex gap-2">

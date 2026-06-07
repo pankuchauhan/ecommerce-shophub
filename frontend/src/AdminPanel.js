@@ -18,28 +18,34 @@ function AdminPanel({ onBack }) {
   }, []);
 
   const loadData = () => {
-    // Load products
+    // Load products from localStorage (this is the source of truth)
     const savedProducts = JSON.parse(localStorage.getItem('admin_products') || '[]');
-    const initialProducts = [
-      { id: 1, name: "Apple AirPods Pro", price: 24999, category: "Electronics", stock: 25, brand: "Apple", image: "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=400", description: "Active Noise Cancellation" },
-      { id: 2, name: "Sony WH-1000XM5", price: 29999, category: "Electronics", stock: 15, brand: "Sony", image: "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400", description: "Noise cancellation" },
-      { id: 3, name: "iPhone 15 Pro", price: 134900, category: "Electronics", stock: 10, brand: "Apple", image: "https://images.unsplash.com/photo-1696446701796-da61225697cc?w=400", description: "A17 Pro chip" },
-      { id: 4, name: "Nike Air Max", price: 12999, category: "Clothing", stock: 40, brand: "Nike", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400", description: "Running shoes" },
-      { id: 5, name: "Levi's Jeans", price: 3999, category: "Clothing", stock: 50, brand: "Levi's", image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400", description: "Premium jeans" },
-      { id: 6, name: "Fossil Gen 6 Watch", price: 22999, category: "Accessories", stock: 20, brand: "Fossil", image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=400", description: "Smart watch" },
-      { id: 7, name: "Titan Analog Watch", price: 8999, category: "Accessories", stock: 30, brand: "Titan", image: "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?w=400", description: "Analog watch" },
-      { id: 8, name: "MacBook Pro M3", price: 169900, category: "Electronics", stock: 8, brand: "Apple", image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400", description: "M3 chip" }
+    const defaultProducts = [
+      { id: 1, name: "Apple AirPods Pro", price: 24999, category: "Electronics", stock: 25, brand: "Apple", image: "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=400", description: "Active Noise Cancellation", rating: 4.8 },
+      { id: 2, name: "Sony WH-1000XM5", price: 29999, category: "Electronics", stock: 15, brand: "Sony", image: "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400", description: "Noise cancellation", rating: 4.9 },
+      { id: 3, name: "iPhone 15 Pro", price: 134900, category: "Electronics", stock: 10, brand: "Apple", image: "https://images.unsplash.com/photo-1696446701796-da61225697cc?w=400", description: "A17 Pro chip", rating: 4.9 },
+      { id: 4, name: "Nike Air Max", price: 12999, category: "Clothing", stock: 40, brand: "Nike", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400", description: "Running shoes", rating: 4.6 },
+      { id: 5, name: "Levi's Jeans", price: 3999, category: "Clothing", stock: 50, brand: "Levi's", image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400", description: "Premium jeans", rating: 4.5 },
+      { id: 6, name: "Fossil Gen 6 Watch", price: 22999, category: "Accessories", stock: 20, brand: "Fossil", image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=400", description: "Smart watch", rating: 4.7 },
+      { id: 7, name: "Titan Analog Watch", price: 8999, category: "Accessories", stock: 30, brand: "Titan", image: "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?w=400", description: "Analog watch", rating: 4.5 },
+      { id: 8, name: "MacBook Pro M3", price: 169900, category: "Electronics", stock: 8, brand: "Apple", image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400", description: "M3 chip", rating: 4.9 }
     ];
-    setProducts(savedProducts.length ? savedProducts : initialProducts);
     
-    // Load orders from localStorage
+    if (savedProducts.length === 0) {
+      localStorage.setItem('admin_products', JSON.stringify(defaultProducts));
+      setProducts(defaultProducts);
+    } else {
+      setProducts(savedProducts);
+    }
+    
+    // Load orders
     const savedOrders = JSON.parse(localStorage.getItem('orders') || '[]');
     setOrders(savedOrders);
     
     // Calculate stats
-    const totalRevenue = savedOrders.reduce((sum, order) => sum + order.total, 0);
+    const totalRevenue = savedOrders.reduce((sum, order) => sum + (order.total || 0), 0);
     setStats({
-      totalProducts: savedProducts.length || initialProducts.length,
+      totalProducts: products.length,
       totalOrders: savedOrders.length,
       totalRevenue: totalRevenue,
       totalUsers: 5
@@ -50,6 +56,8 @@ function AdminPanel({ onBack }) {
     localStorage.setItem('admin_products', JSON.stringify(newProducts));
     setProducts(newProducts);
     setStats({ ...stats, totalProducts: newProducts.length });
+    // Trigger a custom event to notify App.js that products have changed
+    window.dispatchEvent(new Event('productsUpdated'));
   };
 
   const handleSaveProduct = () => {
@@ -57,7 +65,7 @@ function AdminPanel({ onBack }) {
       const updated = products.map(p => p.id === editingProduct.id ? { ...productForm, id: editingProduct.id } : p);
       saveProducts(updated);
     } else {
-      const newProduct = { ...productForm, id: Date.now() };
+      const newProduct = { ...productForm, id: Date.now(), rating: 4.0 };
       saveProducts([...products, newProduct]);
     }
     setShowProductModal(false);
@@ -71,19 +79,18 @@ function AdminPanel({ onBack }) {
     }
   };
 
-  // DELETE ORDER FUNCTION
   const deleteOrder = (orderId) => {
     const updatedOrders = orders.filter(order => order.orderId !== orderId);
     localStorage.setItem('orders', JSON.stringify(updatedOrders));
     setOrders(updatedOrders);
-    setStats({ ...stats, totalOrders: updatedOrders.length, totalRevenue: updatedOrders.reduce((sum, o) => sum + o.total, 0) });
+    setStats({ ...stats, totalOrders: updatedOrders.length, totalRevenue: updatedOrders.reduce((sum, o) => sum + (o.total || 0), 0) });
     setShowDeleteConfirm(false);
     setOrderToDelete(null);
   };
 
   const updateOrderStatus = (orderId, status) => {
     const updatedOrders = orders.map(order => 
-      order.orderId === orderId ? { ...order, status: status } : order
+      order.orderId === orderId ? { ...order, status: status, orderStatus: status } : order
     );
     localStorage.setItem('orders', JSON.stringify(updatedOrders));
     setOrders(updatedOrders);
@@ -104,9 +111,14 @@ function AdminPanel({ onBack }) {
       'processing': 'info',
       'shipped': 'primary',
       'delivered': 'success',
-      'cancelled': 'danger'
+      'cancelled': 'danger',
+      'Pending': 'warning',
+      'Processing': 'info',
+      'Shipped': 'primary',
+      'Delivered': 'success',
+      'Cancelled': 'danger'
     };
-    return statusColors[status?.toLowerCase()] || 'secondary';
+    return statusColors[status] || 'secondary';
   };
 
   return (
@@ -128,7 +140,7 @@ function AdminPanel({ onBack }) {
           <Col md={3}>
             <Card className="text-center bg-primary text-white">
               <Card.Body>
-                <h3>{stats.totalProducts}</h3>
+                <h3>{products.length}</h3>
                 <p>Products</p>
               </Card.Body>
             </Card>
@@ -136,15 +148,14 @@ function AdminPanel({ onBack }) {
           <Col md={3}>
             <Card className="text-center bg-success text-white">
               <Card.Body>
-                <h3>{stats.totalOrders}</h3>
-                <p>Orders</p>
+                <h3>{orders.length}</h3>
               </Card.Body>
             </Card>
           </Col>
           <Col md={3}>
             <Card className="text-center bg-warning text-white">
               <Card.Body>
-                <h3>{stats.totalUsers}</h3>
+                <h3>{stats.totalUsers || 5}</h3>
                 <p>Users</p>
               </Card.Body>
             </Card>
@@ -195,7 +206,7 @@ function AdminPanel({ onBack }) {
           </Card.Body>
         </Card>
 
-        {/* Orders Management with DELETE Option */}
+        {/* Orders Management */}
         <Card>
           <Card.Header>
             <h5 className="mb-0"><i className="bi bi-truck"></i> Orders Management</h5>
@@ -212,16 +223,15 @@ function AdminPanel({ onBack }) {
                     <th>Total</th>
                     <th>Status</th>
                     <th>Date</th>
-                    <th>Action</th>
-                    <th>Delete</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {orders.map(order => (
                     <tr key={order.orderId}>
                       <td><code>{order.orderId}</code></td>
-                      <td>{order.shipping?.fullName || order.customer || 'Guest'}</td>
-                      <td className="fw-bold text-primary">{formatIndianRupee(order.total)}</td>
+                      <td>{order.customerName || order.shipping?.fullName || 'Guest'}</td>
+                      <td>{formatIndianRupee(order.total || order.totalAmount)}</td>
                       <td>
                         <Form.Select 
                           size="sm" 
@@ -229,23 +239,14 @@ function AdminPanel({ onBack }) {
                           value={order.status || order.orderStatus || 'pending'}
                           onChange={(e) => updateOrderStatus(order.orderId, e.target.value)}
                         >
-                          <option value="pending">Pending</option>
-                          <option value="processing">Processing</option>
-                          <option value="shipped">Shipped</option>
-                          <option value="delivered">Delivered</option>
-                          <option value="cancelled">Cancelled</option>
+                          <option value="Pending">Pending</option>
+                          <option value="Processing">Processing</option>
+                          <option value="Shipped">Shipped</option>
+                          <option value="Delivered">Delivered</option>
+                          <option value="Cancelled">Cancelled</option>
                         </Form.Select>
                       </td>
                       <td className="small">{order.date}</td>
-                      <td>
-                        <Button 
-                          size="sm" 
-                          variant="outline-primary"
-                          onClick={() => alert(`Order Details:\n\nOrder ID: ${order.orderId}\nCustomer: ${order.shipping?.fullName}\nTotal: ${formatIndianRupee(order.total)}\nItems: ${order.items?.length || 0}\nPayment: ${order.paymentMethod || 'COD'}`)}
-                        >
-                          <i className="bi bi-eye"></i> View
-                        </Button>
-                      </td>
                       <td>
                         <Button 
                           size="sm" 
@@ -306,8 +307,8 @@ function AdminPanel({ onBack }) {
           {orderToDelete && (
             <Alert variant="danger" className="small">
               <strong>Order ID:</strong> {orderToDelete.orderId}<br />
-              <strong>Customer:</strong> {orderToDelete.shipping?.fullName || 'Guest'}<br />
-              <strong>Total:</strong> {formatIndianRupee(orderToDelete.total)}<br />
+              <strong>Customer:</strong> {orderToDelete.customerName || orderToDelete.shipping?.fullName || 'Guest'}<br />
+              <strong>Total:</strong> {formatIndianRupee(orderToDelete.total || orderToDelete.totalAmount)}<br />
               <strong>Date:</strong> {orderToDelete.date}
             </Alert>
           )}
