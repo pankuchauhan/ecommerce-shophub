@@ -122,7 +122,7 @@ const ProductDetailModal = ({ show, onClose, product, onAddToCart, onBuyNow, for
               <button className="buy-now-btn" onClick={() => onBuyNow(product, quantity)}><i className="bi bi-lightning-charge"></i> Buy Now</button>
             </div>
             <div className="delivery-info">
-              <div className="info-item"><i className="bi bi-truck"></i><span>Free delivery on orders above ₹50,000</span></div>
+              <div className="info-item"><i className="bi bi-truck"></i><span>Free delivery on orders above ₹500</span></div>
               <div className="info-item"><i className="bi bi-arrow-return-left"></i><span>30 days easy returns</span></div>
               <div className="info-item"><i className="bi bi-shield-check"></i><span>Secure payment</span></div>
             </div>
