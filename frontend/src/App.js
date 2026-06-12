@@ -9,7 +9,7 @@ import { jwtDecode } from 'jwt-decode';
 import { sendOrderConfirmation, sendWelcomeEmail } from './services/emailService';
 
 // ⭐⭐⭐ APNI GOOGLE CLIENT ID YAHAN PASTE KARO ⭐⭐⭐
-const GOOGLE_CLIENT_ID = '1060866942072-42gp0tb4lebp01g5g4v0lm22iriied33.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '796460382079-g8hrjkes7723eis2vgohg0t8l50rjsmh.apps.googleusercontent.com';
 
 // Default Products
 const DEFAULT_PRODUCTS = [
